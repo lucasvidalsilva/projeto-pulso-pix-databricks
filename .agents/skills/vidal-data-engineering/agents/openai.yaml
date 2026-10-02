@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engenharia de Dados — Vidal"
+  short_description: "Decisões claras, dados úteis e código explicável"
+  default_prompt: "Use $vidal-data-engineering para construir uma entrega de dados com decisões justificadas e documentação enxuta."

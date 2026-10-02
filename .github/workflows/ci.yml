@@ -1,0 +1,39 @@
+name: Validacao local
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - name: Instalar dependencias
+        run: |
+          if [ -f uv.lock ]; then
+            uv sync --locked --group dev
+          else
+            uv sync --group dev
+            echo "::warning::Versionar uv.lock apos a primeira sincronizacao."
+          fi
+      - name: Verificar codigo Python
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Verificar testes unitarios existentes
+        run: |
+          if find tests/unitarios -name 'test_*.py' -o -name '*_test.py' | grep -q .; then
+            uv run pytest tests/unitarios
+          else
+            echo "::notice::Scaffold sem testes de dados; nenhum teste de pipeline foi executado."
+          fi
