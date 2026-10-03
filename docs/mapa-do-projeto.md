@@ -40,6 +40,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): bruto imutável e overwrite mensal da Silver aceitos por Vidal em 2026-10-03.
 - [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): Volume gerenciado `bronze.respostas_pix` aceito por Vidal em 2026-10-03.
 - [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
+- [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): proposta após a validação da Free Edition; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -83,11 +84,15 @@ Verificação em 2026-10-03, sem criar recursos:
 - disponíveis: Git `2.51.2.windows.1`, uv `0.12.22` e Databricks CLI `v1.19.0` instalada pelo WinGet;
 - `python` e `codex` continuam ausentes do `PATH` deste processo; o launcher `py` também não encontrou Python instalado, embora o ambiente gerenciado pelo uv funcione;
 - `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
-- `databricks auth profiles` encontrou somente `PULSO_PIX`, apontando para `https://dbc-6f6e2ab0-1349.cloud.databricks.com`, com credencial válida; o perfil ainda não foi usado porque a skill oficial exige confirmação explícita antes da seleção;
+- Vidal confirmou o uso do perfil `PULSO_PIX`; `current-user me` validou a identidade ativa e a participação nos grupos `admins` e `users`;
+- o workspace é serverless: há um SQL warehouse `2X-Small` parado, nenhum cluster clássico e nenhum Job existente;
+- os únicos catálogos visíveis são `workspace`, `system` e `samples`; `workspace` é gerenciado e contém apenas `default` e `information_schema`, sem tabelas ou Volumes em `default`;
+- os privilégios visíveis do metastore não incluem `CREATE CATALOG`; a documentação oficial exige esse privilégio para criar os catálogos separados planejados e orienta a Free Edition a usar `workspace.default`;
+- `databricks bundle validate --strict` passou nos targets `dev` e `prod`; nenhum deploy foi executado;
 - não havia navegador ou sessão Databricks aberta disponível para inspeção somente leitura pela interface;
 - 29 skills oficiais Databricks estão presentes no diretório global do Codex, incluindo as centrais para CLI, DABs, descoberta, SQL, Jobs, Pipelines e Unity Catalog. Não há cópia global da skill `vidal-data-engineering`.
 
-A documentação oficial atual descreve a Free Edition como serverless, sujeita a quotas e com internet de saída restrita a domínios confiáveis. Depois da instalação oficial da CLI, ainda será necessário validar autenticação, permissões, catálogo, serverless e acesso de saída ao BCB/IBGE no workspace real.
+A documentação oficial atual descreve a Free Edition como serverless, sujeita a quotas e com internet de saída restrita a domínios confiáveis. Autenticação, catálogo e compute foram inspecionados; permissões de criação e acesso de saída ao BCB/IBGE só poderão ser comprovados por uma execução posterior à decisão de isolamento.
 
 ## Opções de V0
 
@@ -101,16 +106,16 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 ## Próxima etapa e decisão
 
-O isolamento por catálogos foi aceito e parametrizado localmente: `dev` aponta para `pulso_pix_dev`; `prod`, para `pulso_pix_prod`. A configuração ainda não foi validada pela Databricks CLI nem aplicada no workspace.
+O isolamento por catálogos foi aceito e parametrizado localmente, mas a premissa não se confirmou no workspace: `pulso_pix_dev` e `pulso_pix_prod` não existem e os privilégios visíveis não incluem `CREATE CATALOG`. A proposta 008 apresenta três alternativas dentro do único catálogo gerenciado disponível, `workspace`.
 
 A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O contrato local prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; a gravação ainda não foi implementada nem executada.
 
 Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
 
-A Databricks CLI `v1.19.0` e a credencial do perfil `PULSO_PIX` foram verificadas. A próxima etapa é confirmar o uso desse perfil e inspecionar, sem criar recursos, usuário atual, catálogos, permissões aparentes, serverless e recursos disponíveis. Depois dessa evidência serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
+A próxima decisão é como isolar `dev` e `prod` no catálogo `workspace`: schemas por projeto, target e camada; um schema por target com camada nos objetos; ou limitar a execução real a `dev`. A recomendação é `workspace.pulso_pix_<target>_<camada>`, por preservar fronteiras distintas sem depender de catálogos indisponíveis. O Job e os recursos de dados aguardam essa escolha.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, o adaptador mensal e o preparo do artefato bruto passaram por 40 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há Volume criado, pipeline, tabela, benchmark, teste Databricks ou deploy.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, o adaptador mensal e o preparo do artefato bruto passaram por 40 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint, a saída de rede ainda não testada no serverless e a decisão pendente de isolamento impedem classificar a execução como validada. Ainda não há Volume criado, pipeline, tabela, benchmark, teste Databricks ou deploy.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
