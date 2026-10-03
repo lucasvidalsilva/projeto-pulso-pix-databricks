@@ -1,7 +1,7 @@
 # 002 — Primeira entrega de dados Pix
 
-Status: proposto
-Data e hora: 2026-10-02T13:32:06-04:00
+Status: aceito
+Data e hora: 2026-10-03T00:36:41-04:00
 
 ## Contexto
 
@@ -17,14 +17,12 @@ A Free Edition é serverless, limitada por quotas e por saída de rede. Nesta m�
 
 ## Decisão
 
-Aguardando escolha de Vidal entre as opções 1, 2 e 3.
-
-Recomendação técnica: **opção 1**, com recorte fechado de janeiro a dezembro de 2025. Ela começa por uma pergunta defensável, reduz dependências e deixa a junção municipal e o MED para incrementos que só entram após estabilizar o contrato de ingestão.
+Vidal escolheu a **opção 1**, com recorte fechado de janeiro a dezembro de 2025. A V0 usará `EstatisticasTransacoesPix` para explicar a evolução mensal de quantidade e valor por natureza, regiões e forma de iniciação, preservando o grão integral da fonte na entrada.
 
 Esta proposta não decide batch versus streaming, Jobs versus Pipelines, estratégia de escrita, histórico ou isolamento físico/lógico de dados. Streaming, simulador, CDC e ML permanecem fora do escopo.
 
 ## Consequências
 
-Positivas se a recomendação for aceita: primeira entrega pequena e real; uma única licença e API; grão explícito; espaço para demonstrar contrato, idempotência, qualidade e agregação correta sem introduzir infraestrutura adicional.
+Positivas: primeira entrega pequena e real; uma única licença e API; grão explícito; espaço para demonstrar contrato, idempotência, qualidade e agregação correta sem introduzir infraestrutura adicional.
 
-Negativas: o endpoint BCB apresentou instabilidade e respostas inconsistentes, então a ingestão deverá falhar quando `AnoMes` divergir do mês solicitado, aplicar retry com espera e preservar evidência da resposta bruta. O recorte de 2025 não representa toda a história do Pix e a fonte agregada não permite conclusões sobre indivíduos ou fraude.
+Negativas: a consulta exige combinar o parâmetro de início `@Database` com um filtro exato de `AnoMes`; sem esse filtro, meses posteriores também podem ser retornados. A ingestão deverá rejeitar mês divergente, aplicar retry com espera para falhas transitórias e preservar evidência da resposta bruta. O recorte de 2025 não representa toda a história do Pix e a fonte agregada não permite conclusões sobre indivíduos ou fraude.

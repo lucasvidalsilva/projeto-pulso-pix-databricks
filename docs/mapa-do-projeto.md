@@ -6,7 +6,7 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Scaffold e regras de trabalho disponíveis. A investigação inicial de fontes foi realizada em 2026-10-02 e a V0 aguarda escolha de Vidal. Nenhum dado foi ingerido e nenhum recurso Databricks foi criado.
+Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025. O contrato local da fonte foi implementado e validado; nenhum dado foi persistido e nenhum recurso Databricks foi criado.
 
 A sequência abaixo é uma orientação de investigação, não um pipeline implementado:
 
@@ -34,7 +34,8 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 ## Evolução e decisões
 
 - [001 — Método de desenvolvimento](decisoes/001-metodo-de-desenvolvimento.md): aceito por Vidal.
-- [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): proposta com três opções; aguarda escolha de Vidal.
+- [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): opção 1 aceita por Vidal em 2026-10-03.
+- [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -44,14 +45,22 @@ O [conjunto Estatísticas do Pix](https://dadosabertos.bcb.gov.br/pt_BR/dataset/
 
 | Recurso | Grão e medidas | Cobertura e atualização | Limites de interpretação |
 | --- | --- | --- | --- |
-| `EstatisticasTransacoesPix` | Mês × PF/PJ pagador × PF/PJ recebedor × regiões × faixas etárias × forma de iniciação × natureza × finalidade; valor em R$ e quantidade | Conjunto mensal desde 2020-11; cobertura exata do recurso ainda precisa de enumeração operacional | Exclui transações liquidadas nos livros do próprio participante e não representa eventos individuais |
+| `EstatisticasTransacoesPix` | Mês × PF/PJ pagador × PF/PJ recebedor × regiões × faixas etárias × forma de iniciação × natureza × finalidade; valor em R$ e quantidade | Primeiro mês `202011` confirmado; atualização mensal; V0 fechada em `202501`–`202512` | Exclui transações liquidadas nos livros do próprio participante e não representa eventos individuais |
 | `TransacoesPixPorMunicipio` | Mês × código IBGE do município; valor, quantidade e pessoas pagadoras/recebedoras, separados por PF/PJ | Recurso publicado em 2026-01; uma consulta válida confirmou 2026-08, mas o primeiro mês ainda não foi comprovado | Agregado municipal; não mede adoção individual e apresentou comportamento inconsistente para mês inválido |
 | `EstatisticasFraudesPix` | Aparentemente uma linha mensal com contestações, devoluções, valores e bloqueios cautelares do MED | Mensal, publicado 30 dias após o fim do mês; início específico ainda não confirmado | Mede registros do MED, não todas as fraudes Pix; o contrato tem nomenclatura que exige validação antes de publicar indicador |
 | `PixUsuariosCadastradosDICT` | Mês; estoques de usuários PF, PJ e total | Estoque no último dia do mês | Usuário cadastrado não equivale a usuário ativo; não usar como taxa de adoção sem denominador e definição adicionais |
 
-Evidência operacional: uma chamada de `TransacoesPixPorMunicipio` solicitando `202608` com `$top=3` retornou três linhas marcadas como `AnoMes=202610`. Uma consulta posterior filtrada para Cuiabá retornou corretamente `202608`; uma solicitação de um mês antigo (`202401`) devolveu `202512` em vez de erro. Depois de uma sequência curta de chamadas, o serviço passou a responder HTTP 500 inclusive em consulta isolada. A amostra inesperada continha, por exemplo, Santa Inês/PR (`Municipio_Ibge=4123600`), com `VL_PagadorPF=415371,82` e `QT_PagadorPF=1944`, mas ela não deve sustentar análise porque o mês retornado divergiu do solicitado.
+Evidência operacional da fonte escolhida: `@Database='202501'` define o início da consulta, não um mês exclusivo. A consulta mensal correta também aplica `$filter=AnoMes eq 202501`. Sem esse filtro, o serviço pode retornar meses posteriores; isso explica a divergência observada anteriormente e não constitui, por si só, corrupção da fonte. Uma consulta ordenada desde `202001` confirmou `202011` como primeiro mês disponível. O serviço ficou lento e respondeu HTTP 500 após uma sequência curta de chamadas, sem publicar teto ou limite de requisições na especificação consultada.
 
-Consequência para qualquer opção: validar `AnoMes` contra o parâmetro, rejeitar resposta divergente, manter retry com espera e não interpretar HTTP 500 como ausência de dados. Nenhuma amostra foi adicionada ao Git.
+Amostra exata de `202501`, mantida apenas como evidência documental:
+
+| pagador | recebedor | região pagador | região recebedor | iniciação | natureza | valor (R$) | quantidade |
+| --- | --- | --- | --- | --- | --- | ---: | ---: |
+| PF | PF | SUL | SUL | QRES | P2P | 12.709.601,53 | 81.721 |
+| PJ | PJ | SUL | CENTRO-OESTE | QRES | B2B | 15.521.902,07 | 16.482 |
+| PF | PF | SUDESTE | SUL | MANU | P2P | 10.970.832,96 | 25.569 |
+
+Dimensões podem ser nulas ou trazer categorias como `Nao informado`. A fronteira de ingestão deve validar campos obrigatórios, mês exato, tipos, não negatividade das medidas e unicidade do grão; também deve tratar HTTP 500 como falha transitória, não como ausência de dados. Nenhuma resposta bruta foi adicionada ao Git.
 
 ### IBGE
 
@@ -65,11 +74,11 @@ Não presumir que MED tem detalhe municipal ou que dados agregados permitem iden
 
 ## Acesso local e ao workspace
 
-Verificação em 2026-10-02, sem criar recursos:
+Verificação em 2026-10-03, sem criar recursos:
 
 - disponíveis: Git `2.51.2.windows.1` e uv `0.12.22`;
 - ausentes do `PATH`: `python`, `codex` e `databricks`; o launcher `py` também não encontrou Python instalado;
-- a listagem de Python pelo uv foi bloqueada pelo acesso ao cache do usuário fora do sandbox;
+- `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
 - por falta da Databricks CLI, não foi possível executar `databricks auth profiles`, `databricks aitools list --scope global` nem `databricks current-user me --profile PULSO_PIX`;
 - 29 skills oficiais Databricks estão presentes no diretório global do Codex, incluindo as centrais para CLI, DABs, descoberta, SQL, Jobs, Pipelines e Unity Catalog. Não há cópia global da skill `vidal-data-engineering`.
 
@@ -83,14 +92,19 @@ A documentação oficial atual descreve a Free Edition como serverless, sujeita 
 | 2 — Intensidade municipal | Como o uso agregado do Pix se distribui entre municípios em 2026, e o que muda quando normalizado pela estimativa populacional? BCB municipal + IBGE | Chave oficial pronta, resultado territorial intuitivo e duas fontes rastreáveis | Cobertura municipal curta/incerta, API instável, revisão do denominador anual e risco de confundir transações por residente com adoção |
 | 3 — Efetividade observada do MED | Como contestações, valores aceitos e devoluções pelo MED evoluem mês a mês? | Conjunto pequeno e tema relevante de risco | Não representa toda fraude, tem defasagem mínima de 30 dias e exige resolver ambiguidades do contrato antes de definir taxas |
 
-A recomendação é a opção 1: ela entrega entendimento útil com menos premissas e permite validar ingestão, preservação do bruto, qualidade e modelagem antes de adicionar junção municipal ou métricas de risco. O recorte proposto é o ano civil de 2025; ampliar a série histórica seria uma etapa posterior, não requisito da V0.
+A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos premissas e permite validar ingestão, preservação do bruto, qualidade e modelagem antes de adicionar junção municipal ou métricas de risco. O recorte é o ano civil de 2025; ampliar a série histórica será uma decisão posterior, não requisito da V0.
 
 ## Próxima decisão e entrega
 
-Vidal deve escolher a opção 1, 2 ou 3 do ADR 002. Depois da escolha e da instalação da CLI, verificar o workspace sem criar dados; em seguida, apresentar separadamente as opções de isolamento de `dev` e `portfolio` antes da primeira persistência. Criar somente a implementação escolhida.
+Escolher entre duas estratégias batch:
+
+1. **Unidade mensal parametrizada (recomendada):** executar e reprocessar um `AnoMes` por vez; o backfill de 2025 terá 12 unidades independentes. Reduz o impacto de falhas e facilita evidência por competência, ao custo de mais chamadas e controle de execução.
+2. **Snapshot anual:** buscar e reprocessar 2025 como uma única unidade lógica. Simplifica a primeira execução, mas aumenta payload, tempo, custo de repetição e impacto de falhas.
+
+Streaming foi descartado desta decisão porque a fonte é uma API de consulta com atualização mensal, sem fluxo de eventos ou change feed. Depois da escolha, decidir separadamente isolamento de `dev` e `portfolio`, estratégia de escrita e orquestração antes da primeira persistência. A verificação real do workspace depende da instalação da Databricks CLI atual.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contratos de campos, uma chave de junção IBGE e pequenas respostas das APIs. A instabilidade do endpoint BCB e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução. Ainda não há pipeline, tabela, benchmark, teste Databricks ou deploy.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato local passou por 21 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura usou a URL produzida pelo código, retornou uma linha de `202501` e passou no validador. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há pipeline, tabela, benchmark, teste Databricks ou deploy.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
