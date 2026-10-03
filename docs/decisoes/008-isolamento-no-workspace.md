@@ -1,7 +1,7 @@
 # 008 — Isolamento no catálogo do workspace
 
-Status: proposto
-Data e hora: 2026-10-03T11:59:22-04:00
+Status: aceito
+Data e hora: 2026-10-03T16:04:50-04:00
 
 ## Contexto
 
@@ -17,14 +17,12 @@ Três alternativas são viáveis:
 
 ## Decisão
 
-Aguardando escolha de Vidal.
-
-Recomendação técnica: **schemas por projeto, target e camada no catálogo `workspace`**. Essa opção preserva a intenção da decisão anterior com os recursos realmente observados e mantém a separação verificável por nomes e permissões, sem fingir que a Free Edition oferece catálogos que não estão disponíveis.
+Vidal escolheu **somente `dev` na Free Edition**. Os dados reais usarão `workspace.bronze`, `workspace.silver` e, quando houver consumidor aprovado, `workspace.gold`. O target `prod` permanece no bundle para validar configuração em modo production, mas não receberá recursos de dados nem será implantado neste workspace.
 
 Nenhum schema, Volume ou tabela foi criado durante a investigação.
 
 ## Consequências
 
-Se a opção recomendada for aceita, o bundle passará a parametrizar catálogo fixo `workspace` e prefixo de schema por target. O bruto de desenvolvimento ficará em `workspace.pulso_pix_dev_bronze.respostas_pix`, e a tabela tratada em `workspace.pulso_pix_dev_silver.estatisticas_transacoes`; `prod` terá objetos equivalentes e separados.
+O bundle passa a parametrizar o catálogo fixo `workspace` e os schemas de camada. O bruto de desenvolvimento ficará em `workspace.bronze.respostas_pix`, e a tabela tratada em `workspace.silver.estatisticas_transacoes`.
 
-As outras opções reduzem o número de schemas, mas enfraquecem a separação por camada ou removem o ambiente de produção da execução real. A decisão 004 deverá ser marcada como substituída somente depois da escolha de Vidal.
+Recursos de dados e Jobs serão declarados apenas dentro de `targets.dev.resources`, uma capacidade confirmada no schema da CLI `v1.19.0`. Assim, validar `prod` não adiciona recursos e um deploy acidental desse target não aponta para os objetos de `dev`. O custo é não haver paridade real nem evidência de produção; `mode: production` continuará sendo apenas validação de configuração. A decisão 004 foi marcada como substituída.

@@ -3,8 +3,17 @@ bundle:
 
 variables:
   catalogo:
-    description: Catalogo de dados isolado por target; validar permissao antes de criar.
-    default: pulso_pix_dev
+    description: Catalogo gerenciado disponivel na Free Edition.
+    default: workspace
+  schema_bronze:
+    description: Schema da camada bruta implantavel somente em dev.
+    default: bronze
+  schema_silver:
+    description: Schema da camada tratada implantavel somente em dev.
+    default: silver
+  schema_gold:
+    description: Schema analitico; criar apenas quando houver entrega Gold.
+    default: gold
 
 workspace:
   root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
@@ -22,11 +31,7 @@ targets:
   dev:
     default: true
     mode: development
-    variables:
-      catalogo: pulso_pix_dev
   prod:
     mode: production
     workspace:
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
-    variables:
-      catalogo: pulso_pix_prod

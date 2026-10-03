@@ -24,8 +24,8 @@ A sequência abaixo é uma orientação de investigação, não um pipeline impl
 | Código | Português, SQL declarativo; Python/PySpark conforme necessidade |
 | Organização | Contexto próximo, menos arquivos; notebooks conforme propósito |
 | Dados | Medallion como referência; bruto em `bronze.respostas_pix`; qualidade por impacto |
-| Catálogos | `pulso_pix_dev` e `pulso_pix_prod`; sujeitos à validação no workspace |
-| Ambientes | `dev` e `prod` no mesmo workspace; isolamento por catálogo |
+| Catálogo | `workspace`; dados reais apenas em `dev` |
+| Ambientes | `dev` implantável; `prod` apenas para validar configuração |
 | Documentação | Este mapa + ADRs curtos + README de entrada |
 | Entrega | Branch + PR, commits automáticos; checks relevantes |
 
@@ -36,11 +36,12 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [001 — Método de desenvolvimento](decisoes/001-metodo-de-desenvolvimento.md): aceito por Vidal.
 - [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): opção 1 aceita por Vidal em 2026-10-03.
 - [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): batch mensal parametrizado aceito por Vidal em 2026-10-03.
-- [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): catálogos separados e nomenclatura `dev`/`prod` aceitos por Vidal em 2026-10-03.
+- [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): substituída pela decisão 008 após validação do workspace.
 - [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): bruto imutável e overwrite mensal da Silver aceitos por Vidal em 2026-10-03.
 - [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): Volume gerenciado `bronze.respostas_pix` aceito por Vidal em 2026-10-03.
 - [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
-- [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): proposta após a validação da Free Edition; aguarda escolha de Vidal.
+- [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): somente `dev` no catálogo `workspace` aceito por Vidal em 2026-10-03.
+- [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -106,13 +107,13 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 ## Próxima etapa e decisão
 
-O isolamento por catálogos foi aceito e parametrizado localmente, mas a premissa não se confirmou no workspace: `pulso_pix_dev` e `pulso_pix_prod` não existem e os privilégios visíveis não incluem `CREATE CATALOG`. A proposta 008 apresenta três alternativas dentro do único catálogo gerenciado disponível, `workspace`.
+Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze`, `workspace.silver` e `workspace.gold`. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. A CLI confirmou que recursos podem ser definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
 
 A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O contrato local prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; a gravação ainda não foi implementada nem executada.
 
 Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
 
-A próxima decisão é como isolar `dev` e `prod` no catálogo `workspace`: schemas por projeto, target e camada; um schema por target com camada nos objetos; ou limitar a execução real a `dev`. A recomendação é `workspace.pulso_pix_<target>_<camada>`, por preservar fronteiras distintas sem depender de catálogos indisponíveis. O Job e os recursos de dados aguardam essa escolha.
+A próxima decisão é a forma de execução do Job: uma wheel task ponta a ponta, duas wheel tasks com handoff, ou wheel de ingestão seguida por uma SQL task. A recomendação é começar com uma tarefa ponta a ponta, suficiente para a carga mensal pequena e sem estado entre tarefas.
 
 ## Evidências e limites
 

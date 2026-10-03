@@ -1,7 +1,7 @@
 # 004 — Isolamento de dados por target
 
-Status: aceito
-Data e hora: 2026-10-03T08:46:23-04:00
+Status: substituído
+Data e hora: 2026-10-03T16:04:50-04:00
 
 ## Contexto
 
@@ -21,6 +21,8 @@ Vidal escolheu **catálogos separados por target** e definiu a nomenclatura `pro
 A decisão continua condicionada à validação de suporte e permissões no workspace. Se a Free Edition real não permitir os dois catálogos, nenhuma alternativa será aplicada sem nova escolha de Vidal.
 
 Esta decisão não cria catálogos ou schemas e não escolhe a operação de escrita nem a tecnologia de orquestração.
+
+Esta decisão foi substituída pela [decisão 008](008-isolamento-no-workspace.md) depois que a inspeção do workspace mostrou que os catálogos planejados não estavam disponíveis e Vidal escolheu limitar a persistência real ao target `dev` no catálogo `workspace`.
 
 ## Consequências
 
