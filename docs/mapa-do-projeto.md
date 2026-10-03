@@ -81,7 +81,7 @@ Não presumir que MED tem detalhe municipal ou que dados agregados permitem iden
 Verificação em 2026-10-03, sem criar recursos:
 
 - disponíveis: Git `2.51.2.windows.1` e uv `0.12.22`;
-- ausentes do `PATH`: `python`, `codex` e `databricks`; o launcher `py` também não encontrou Python instalado;
+- ausentes do `PATH`: `python`, `codex`, `databricks` e `winget`; o launcher `py` também não encontrou Python instalado;
 - `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
 - por falta da Databricks CLI, não foi possível executar `databricks auth profiles`, `databricks aitools list --scope global` nem `databricks current-user me --profile PULSO_PIX`;
 - não havia navegador ou sessão Databricks aberta disponível para inspeção somente leitura pela interface;
@@ -107,7 +107,7 @@ A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram a
 
 Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
 
-A implementação do Job está bloqueada por um pré-requisito verificável: em 2026-10-03, `databricks version` ainda não foi reconhecido no `PATH`. A próxima etapa é instalar a Databricks CLI atual pelo WinGet, reiniciar a sessão de terminal e verificar versão, perfis e workspace sem criar recursos. Só depois serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
+A implementação do Job está bloqueada por um pré-requisito verificável: em 2026-10-03, nem `databricks version` nem `winget --version` foram reconhecidos no `PATH`. A próxima etapa externa é disponibilizar o WinGet e instalar `Databricks.DatabricksCLI`, ou instalar manualmente o binário atual publicado pela Databricks; depois, reiniciar a sessão de terminal e verificar versão, perfis e workspace sem criar recursos. Só então serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
 
 ## Evidências e limites
 
