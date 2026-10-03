@@ -1,7 +1,7 @@
 # 009 — Execução das tarefas do Job
 
-Status: proposto
-Data e hora: 2026-10-03T16:04:50-04:00
+Status: aceito
+Data e hora: 2026-10-03T16:23:50-04:00
 
 ## Contexto
 
@@ -17,12 +17,10 @@ Notebooks produtivos não foram mantidos como uma opção separada: seriam apena
 
 ## Decisão
 
-Aguardando escolha de Vidal.
-
-Recomendação técnica: **uma `python_wheel_task` ponta a ponta**. A separação interna entre preservar, validar e publicar continua explícita e testável; uma segunda tarefa só deve entrar se surgir necessidade real de retry ou operação independente.
+Vidal escolheu a opção 1: **uma `python_wheel_task` ponta a ponta**. O entrypoint recebe `ano_mes`, baixa e preserva a resposta original, valida o contrato e publica a competência na Silver por SQL versionado. A separação interna entre preservar, validar e publicar continua explícita e testável; uma segunda tarefa só deve entrar se surgir necessidade real de retry ou operação independente.
 
 ## Consequências
 
-Com uma tarefa, uma falha impede a publicação e a reexecução repete o fluxo completo, preservando uma nova versão bruta. A publicação mensal continua idempotente pelo overwrite seletivo já aceito.
+Com uma tarefa, uma falha impede a publicação e a reexecução repete o fluxo completo, preservando uma nova versão bruta. A publicação mensal continua idempotente pelo overwrite seletivo já aceito. Retry, timeout e observabilidade operacional ficam no nível do fluxo inteiro.
 
 Com duas tarefas, o Job ganha granularidade operacional, mas precisa de contrato de handoff e mais configuração. Com `sql_task`, ganha separação por linguagem ao custo de acoplar o fluxo ao warehouse.

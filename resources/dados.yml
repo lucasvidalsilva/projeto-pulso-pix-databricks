@@ -1,0 +1,19 @@
+targets:
+  dev:
+    resources:
+      schemas:
+        bronze:
+          name: ${var.schema_bronze}
+          catalog_name: ${var.catalogo}
+          comment: Camada bruta do Pulso Pix em desenvolvimento.
+        silver:
+          name: ${var.schema_silver}
+          catalog_name: ${var.catalogo}
+          comment: Camada tratada do Pulso Pix em desenvolvimento.
+      volumes:
+        respostas_pix:
+          name: ${var.volume_respostas_pix}
+          catalog_name: ${var.catalogo}
+          schema_name: ${resources.schemas.bronze.name}
+          volume_type: MANAGED
+          comment: Respostas originais e metadados das extrações do Pix.

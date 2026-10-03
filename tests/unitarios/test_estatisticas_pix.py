@@ -1,7 +1,7 @@
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta, timezone
 from hashlib import sha256
-from json import dumps
+from json import dumps, loads
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 
@@ -13,6 +13,7 @@ from pulso_pix.estatisticas_pix import (
     baixar_resposta,
     construir_url,
     extrair_registros,
+    gravar_artefato_bruto,
     preparar_artefato_bruto,
     validar_resposta,
 )
@@ -143,6 +144,30 @@ def test_extracoes_distintas_nao_compartilham_caminho():
     assert primeira.caminho_relativo != segunda.caminho_relativo
 
 
+def test_grava_resposta_e_metadados_sem_sobrescrever(tmp_path):
+    artefato = preparar_artefato_bruto(
+        b'{"value": []}',
+        202501,
+        "31b10af6-a8ab-4162-976c-29de93436840",
+        datetime(2026, 10, 3, tzinfo=UTC),
+    )
+
+    caminho_resposta, caminho_metadados = gravar_artefato_bruto(artefato, tmp_path)
+
+    assert caminho_resposta.read_bytes() == artefato.conteudo
+    assert loads(caminho_metadados.read_text("utf-8")) == {
+        "ano_mes": 202501,
+        "caminho_resposta": caminho_resposta.as_posix(),
+        "extracao_id": artefato.extracao_id,
+        "extraido_em": "2026-10-03T00:00:00Z",
+        "sha256": artefato.sha256,
+        "tamanho_bytes": len(artefato.conteudo),
+        "url_origem": construir_url(202501),
+    }
+    with pytest.raises(FileExistsError):
+        gravar_artefato_bruto(artefato, tmp_path)
+
+
 @pytest.mark.parametrize(
     ("alteracao", "mensagem"),
     [
@@ -176,6 +201,25 @@ def test_rejeita_catalogo_inseguro_no_caminho_volume(catalogo):
 
     with pytest.raises(ValueError, match="catalogo"):
         artefato.caminho_volume(catalogo)
+
+
+@pytest.mark.parametrize(
+    ("schema", "volume", "mensagem"),
+    [
+        ("Bronze", "respostas_pix", "schema"),
+        ("bronze", "respostas-pix", "volume"),
+    ],
+)
+def test_rejeita_schema_ou_volume_inseguro(schema, volume, mensagem):
+    artefato = preparar_artefato_bruto(
+        b"resposta",
+        202501,
+        "31b10af6-a8ab-4162-976c-29de93436840",
+        datetime(2026, 10, 3, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValueError, match=mensagem):
+        artefato.caminho_volume("workspace", schema=schema, volume=volume)
 
 
 def test_repete_falha_transitoria_com_espera_exponencial(monkeypatch):
@@ -228,6 +272,18 @@ def test_extrai_e_valida_registros(registro_valido):
     conteudo = dumps({"@odata.context": "origem", "value": [registro_valido]}).encode()
 
     assert extrair_registros(conteudo, 202501) == [registro_valido]
+
+
+def test_rejeita_resposta_paginada_para_nao_publicar_mes_incompleto(registro_valido):
+    conteudo = dumps(
+        {
+            "@odata.nextLink": "https://exemplo.invalid/proxima-pagina",
+            "value": [registro_valido],
+        }
+    ).encode()
+
+    with pytest.raises(ContratoFonteInvalido, match="paginada"):
+        extrair_registros(conteudo, 202501)
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,15 @@
 bundle:
   name: pulso-pix
 
+include:
+  - resources/*.yml
+
+artifacts:
+  pacote:
+    type: whl
+    build: uv build --wheel
+    path: .
+
 variables:
   catalogo:
     description: Catalogo gerenciado disponivel na Free Edition.
@@ -14,6 +23,9 @@ variables:
   schema_gold:
     description: Schema analitico; criar apenas quando houver entrega Gold.
     default: gold
+  volume_respostas_pix:
+    description: Volume gerenciado para respostas brutas da API do Pix.
+    default: respostas_pix
 
 workspace:
   root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
@@ -30,7 +42,6 @@ sync:
 targets:
   dev:
     default: true
-    mode: development
   prod:
     mode: production
     workspace:

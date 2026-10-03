@@ -2,9 +2,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
-from json import JSONDecodeError, loads
+from json import JSONDecodeError, dumps, loads
 from math import isfinite
 from numbers import Integral, Real
+from pathlib import Path
 from re import fullmatch
 from time import sleep
 from urllib.error import HTTPError, URLError
@@ -45,10 +46,16 @@ class ArtefatoBruto:
     tamanho_bytes: int
     caminho_relativo: str
 
-    def caminho_volume(self, catalogo: str) -> str:
-        if fullmatch(r"[a-z][a-z0-9_]*", catalogo) is None:
-            raise ValueError("catalogo deve ser um identificador snake_case")
-        return f"/Volumes/{catalogo}/{SCHEMA_BRONZE}/{VOLUME_RESPOSTAS_PIX}/{self.caminho_relativo}"
+    def caminho_volume(
+        self,
+        catalogo: str,
+        schema: str = SCHEMA_BRONZE,
+        volume: str = VOLUME_RESPOSTAS_PIX,
+    ) -> str:
+        validar_identificador(catalogo, "catalogo")
+        validar_identificador(schema, "schema")
+        validar_identificador(volume, "volume")
+        return f"/Volumes/{catalogo}/{schema}/{volume}/{self.caminho_relativo}"
 
 
 class ContratoFonteInvalido(ValueError):
@@ -57,6 +64,11 @@ class ContratoFonteInvalido(ValueError):
 
 class FontePixIndisponivel(RuntimeError):
     pass
+
+
+def validar_identificador(valor: str, nome: str) -> None:
+    if not isinstance(valor, str) or fullmatch(r"[a-z][a-z0-9_]*", valor) is None:
+        raise ValueError(f"{nome} deve ser um identificador snake_case")
 
 
 def preparar_artefato_bruto(
@@ -94,6 +106,38 @@ def preparar_artefato_bruto(
         tamanho_bytes=len(conteudo),
         caminho_relativo=caminho_relativo,
     )
+
+
+def gravar_artefato_bruto(
+    artefato: ArtefatoBruto,
+    raiz_volume: str | Path,
+) -> tuple[Path, Path]:
+    caminho_resposta = Path(raiz_volume, artefato.caminho_relativo)
+    caminho_metadados = caminho_resposta.with_name("metadados.json")
+    caminho_resposta.parent.mkdir(parents=True, exist_ok=True)
+
+    with caminho_resposta.open("xb") as arquivo:
+        arquivo.write(artefato.conteudo)
+
+    metadados = {
+        "ano_mes": artefato.ano_mes,
+        "caminho_resposta": caminho_resposta.as_posix(),
+        "extracao_id": artefato.extracao_id,
+        "extraido_em": artefato.extraido_em.isoformat().replace("+00:00", "Z"),
+        "sha256": artefato.sha256,
+        "tamanho_bytes": artefato.tamanho_bytes,
+        "url_origem": artefato.url_origem,
+    }
+    conteudo_metadados = dumps(
+        metadados,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ).encode("utf-8")
+    with caminho_metadados.open("xb") as arquivo:
+        arquivo.write(conteudo_metadados)
+
+    return caminho_resposta, caminho_metadados
 
 
 def construir_url(ano_mes: int, limite: int | None = None) -> str:
@@ -165,6 +209,8 @@ def extrair_registros(
 
     if not isinstance(documento, Mapping) or not isinstance(documento.get("value"), list):
         raise ContratoFonteInvalido("resposta não contém a lista value")
+    if "@odata.nextLink" in documento or "odata.nextLink" in documento:
+        raise ContratoFonteInvalido("resposta paginada não pode ser publicada parcialmente")
 
     registros: list[dict[str, object]] = []
     for indice, registro in enumerate(documento["value"]):

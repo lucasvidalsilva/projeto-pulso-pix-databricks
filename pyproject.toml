@@ -9,6 +9,9 @@ description = "Engenharia e produto de dados sobre o Pix no Brasil"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+processar_estatisticas_pix = "pulso_pix.tarefa_estatisticas_pix:main"
+
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
 

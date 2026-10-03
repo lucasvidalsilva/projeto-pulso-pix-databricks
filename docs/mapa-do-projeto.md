@@ -6,9 +6,9 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato e o adaptador local da fonte estão implementados; nenhum dado foi persistido e nenhum recurso Databricks foi criado.
+Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implementados localmente; nenhum dado foi persistido, nenhum recurso Databricks foi criado e nenhum deploy foi executado.
 
-A sequência abaixo é uma orientação de investigação, não um pipeline implementado:
+A sequência abaixo registra o ciclo da V0; as etapas 1–4 têm implementação local e a etapa 5 depende da execução no Databricks:
 
 1. Verificar fonte, grão, cobertura, licença, atualização e acesso.
 2. Escolher a primeira pergunta e a menor entrega útil.
@@ -41,7 +41,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): Volume gerenciado `bronze.respostas_pix` aceito por Vidal em 2026-10-03.
 - [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
 - [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): somente `dev` no catálogo `workspace` aceito por Vidal em 2026-10-03.
-- [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): proposta; aguarda escolha de Vidal.
+- [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): uma `python_wheel_task` ponta a ponta aceita por Vidal em 2026-10-03.
 
 ## Fontes investigadas
 
@@ -105,18 +105,22 @@ A documentação oficial atual descreve a Free Edition como serverless, sujeita 
 
 A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos premissas e permite validar ingestão, preservação do bruto, qualidade e modelagem antes de adicionar junção municipal ou métricas de risco. O recorte é o ano civil de 2025; ampliar a série histórica será uma decisão posterior, não requisito da V0.
 
-## Próxima etapa e decisão
+## Implementação local da V0
 
 Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze`, `workspace.silver` e `workspace.gold`. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. A CLI confirmou que recursos podem ser definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
 
-A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O contrato local prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; a gravação ainda não foi implementada nem executada.
+A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O fluxo prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; grava os bytes e um `metadados.json` com criação exclusiva antes de validar a resposta. Assim, uma resposta inválida continua disponível para investigação sem chegar à Silver.
 
-Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
+Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0, e uma única `python_wheel_task` ponta a ponta. O wheel executa ingestão e qualidade em Python, carrega a transformação declarativa de um SQL empacotado e grava `workspace.silver.estatisticas_transacoes` em Delta. O grão continua sendo mês × PF/PJ pagador × PF/PJ recebedor × regiões × faixas etárias × forma de iniciação × natureza × finalidade; `replaceWhere` limita o overwrite à competência solicitada.
 
-A próxima decisão é a forma de execução do Job: uma wheel task ponta a ponta, duas wheel tasks com handoff, ou wheel de ingestão seguida por uma SQL task. A recomendação é começar com uma tarefa ponta a ponta, suficiente para a carga mensal pequena e sem estado entre tarefas.
+O bundle declara apenas no target `dev` os schemas `workspace.bronze` e `workspace.silver`, o Volume gerenciado e o Job serverless. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nome `[dev]` do Job. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
+
+Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador, ML e Gold não entram nesta entrega. A próxima etapa operacional é um deploy controlado em `dev` e uma execução de `202501`; isso exige autorização de execução e poderá comprovar permissões de criação, saída serverless para o BCB, persistência no Volume e comportamento Delta real.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, o adaptador mensal e o preparo do artefato bruto passaram por 40 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint, a saída de rede ainda não testada no serverless e a decisão pendente de isolamento impedem classificar a execução como validada. Ainda não há Volume criado, pipeline, tabela, benchmark, teste Databricks ou deploy.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, o SQL e o overwrite seletivo passaram por 48 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. O wheel foi construído e contém o entrypoint e o SQL. A CLI validou estritamente `dev` com os nomes `workspace.bronze`, `workspace.silver` e `/Volumes/workspace/bronze/respostas_pix`; também confirmou que `prod` resolve sem recursos.
+
+A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. Ainda não foram comprovados no serverless a saída de rede para o BCB, as permissões de criação/gravação nem o `replaceWhere` no Delta real. Não há Volume, Job ou tabela criados, benchmark, teste Databricks ou deploy.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
