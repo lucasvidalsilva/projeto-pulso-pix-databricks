@@ -18,7 +18,7 @@ Um Pipeline isolado não foi mantido como opção: a requisição HTTP e a escri
 
 Vidal escolheu **Lakeflow Job com tarefas batch**, parametrizado por `ano_mes`. A V0 não usará Spark Declarative Pipeline. A escolha mantém um único recurso de orquestração e permite que a ingestão continue em Python e a transformação declarativa em SQL.
 
-Nenhum recurso, notebook ou YAML de Job foi criado nesta decisão. A verificação de 2026-10-03 confirmou que a Databricks CLI e o WinGet estão ausentes do `PATH`; a implementação do recurso fica condicionada à instalação externa da CLI atual e à validação do workspace, conforme a skill oficial Databricks Core.
+Nenhum recurso, notebook ou YAML de Job foi criado nesta decisão. A Databricks CLI `v1.19.0` foi instalada e verificada em 2026-10-03; a inspeção do workspace aguarda a confirmação explícita do perfil, conforme a skill oficial Databricks Core.
 
 ## Consequências
 

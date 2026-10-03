@@ -80,10 +80,10 @@ Não presumir que MED tem detalhe municipal ou que dados agregados permitem iden
 
 Verificação em 2026-10-03, sem criar recursos:
 
-- disponíveis: Git `2.51.2.windows.1` e uv `0.12.22`;
-- ausentes do `PATH`: `python`, `codex`, `databricks` e `winget`; o launcher `py` também não encontrou Python instalado;
+- disponíveis: Git `2.51.2.windows.1`, uv `0.12.22` e Databricks CLI `v1.19.0` instalada pelo WinGet;
+- `python` e `codex` continuam ausentes do `PATH` deste processo; o launcher `py` também não encontrou Python instalado, embora o ambiente gerenciado pelo uv funcione;
 - `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
-- por falta da Databricks CLI, não foi possível executar `databricks auth profiles`, `databricks aitools list --scope global` nem `databricks current-user me --profile PULSO_PIX`;
+- `databricks auth profiles` encontrou somente `PULSO_PIX`, apontando para `https://dbc-6f6e2ab0-1349.cloud.databricks.com`, com credencial válida; o perfil ainda não foi usado porque a skill oficial exige confirmação explícita antes da seleção;
 - não havia navegador ou sessão Databricks aberta disponível para inspeção somente leitura pela interface;
 - 29 skills oficiais Databricks estão presentes no diretório global do Codex, incluindo as centrais para CLI, DABs, descoberta, SQL, Jobs, Pipelines e Unity Catalog. Não há cópia global da skill `vidal-data-engineering`.
 
@@ -107,7 +107,7 @@ A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram a
 
 Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
 
-A implementação do Job está bloqueada por um pré-requisito verificável: em 2026-10-03, nem `databricks version` nem `winget --version` foram reconhecidos no `PATH`. A próxima etapa externa é disponibilizar o WinGet e instalar `Databricks.DatabricksCLI`, ou instalar manualmente o binário atual publicado pela Databricks; depois, reiniciar a sessão de terminal e verificar versão, perfis e workspace sem criar recursos. Só então serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
+A Databricks CLI `v1.19.0` e a credencial do perfil `PULSO_PIX` foram verificadas. A próxima etapa é confirmar o uso desse perfil e inspecionar, sem criar recursos, usuário atual, catálogos, permissões aparentes, serverless e recursos disponíveis. Depois dessa evidência serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
 
 ## Evidências e limites
 
