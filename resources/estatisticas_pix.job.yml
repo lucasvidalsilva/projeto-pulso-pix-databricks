@@ -31,9 +31,9 @@ targets:
                   - ${resources.schemas.silver.name}
                   - --volume
                   - ${resources.volumes.respostas_pix.name}
-              libraries:
-                - whl: ../dist/*.whl
           environments:
             - environment_key: padrao
               spec:
                 client: "4"
+                dependencies:
+                  - ../dist/*.whl
