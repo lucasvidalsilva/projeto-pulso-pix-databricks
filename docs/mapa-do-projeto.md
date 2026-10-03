@@ -39,7 +39,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): catálogos separados e nomenclatura `dev`/`prod` aceitos por Vidal em 2026-10-03.
 - [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): bruto imutável e overwrite mensal da Silver aceitos por Vidal em 2026-10-03.
 - [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): Volume gerenciado `bronze.respostas_pix` aceito por Vidal em 2026-10-03.
-- [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): proposta; aguarda escolha de Vidal.
+- [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
 
 ## Fontes investigadas
 
@@ -99,18 +99,15 @@ A documentação oficial atual descreve a Free Edition como serverless, sujeita 
 
 A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos premissas e permite validar ingestão, preservação do bruto, qualidade e modelagem antes de adicionar junção municipal ou métricas de risco. O recorte é o ano civil de 2025; ampliar a série histórica será uma decisão posterior, não requisito da V0.
 
-## Próxima decisão e entrega
+## Próxima etapa e decisão
 
 O isolamento por catálogos foi aceito e parametrizado localmente: `dev` aponta para `pulso_pix_dev`; `prod`, para `pulso_pix_prod`. A configuração ainda não foi validada pela Databricks CLI nem aplicada no workspace.
 
 A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O contrato local prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; a gravação ainda não foi implementada nem executada.
 
-A próxima decisão é a orquestração:
+Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0. A ingestão permanece em Python e a transformação declarativa poderá permanecer em SQL. Spark Declarative Pipeline, streaming e Auto Loader não entram nesta entrega.
 
-1. **Lakeflow Job com tarefas batch (recomendado):** recebe `ano_mes`, coordena ingestão Python e publicação Silver, com dependências, retries e histórico de execução em um único recurso. A transformação pode permanecer em SQL. É a menor solução para a V0, mas os checks e o overwrite seletivo ficam explícitos no código.
-2. **Lakeflow Job + Spark Declarative Pipeline:** o Job preserva o bruto e aciona um Pipeline batch para a Silver. Acrescenta expectativas e linhagem administradas à transformação, ao custo de dois recursos e maior complexidade operacional para uma única fonte.
-
-Pipeline isolado não resolve sozinho os efeitos da chamada HTTP e da escrita imutável. Streaming e Auto Loader permanecem fora do escopo. A verificação real do workspace, do Volume e de qualquer recurso escolhido depende da instalação da Databricks CLI atual.
+A implementação do Job está bloqueada por um pré-requisito verificável: em 2026-10-03, `databricks version` ainda não foi reconhecido no `PATH`. A próxima etapa é instalar a Databricks CLI atual pelo WinGet, reiniciar a sessão de terminal e verificar versão, perfis e workspace sem criar recursos. Só depois serão definidos e validados localmente o YAML do Job e o meio de execução das tarefas.
 
 ## Evidências e limites
 
