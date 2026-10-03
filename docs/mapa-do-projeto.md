@@ -24,8 +24,8 @@ A sequência abaixo é uma orientação de investigação, não um pipeline impl
 | Código | Português, SQL declarativo; Python/PySpark conforme necessidade |
 | Organização | Contexto próximo, menos arquivos; notebooks conforme propósito |
 | Dados | Medallion como referência, bruto preservado, qualidade por impacto |
-| Catálogo lógico | `pulso_pix`; `bronze`, `silver`, `gold`, `sandbox` conforme necessidade |
-| Ambientes | `dev` e `portfolio` no mesmo workspace; separar dados antes de escrever |
+| Catálogos | `pulso_pix_dev` e `pulso_pix_prod`; sujeitos à validação no workspace |
+| Ambientes | `dev` e `prod` no mesmo workspace; isolamento por catálogo |
 | Documentação | Este mapa + ADRs curtos + README de entrada |
 | Entrega | Branch + PR, commits automáticos; checks relevantes |
 
@@ -36,7 +36,8 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [001 — Método de desenvolvimento](decisoes/001-metodo-de-desenvolvimento.md): aceito por Vidal.
 - [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): opção 1 aceita por Vidal em 2026-10-03.
 - [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): batch mensal parametrizado aceito por Vidal em 2026-10-03.
-- [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): proposta; aguarda escolha de Vidal.
+- [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): catálogos separados e nomenclatura `dev`/`prod` aceitos por Vidal em 2026-10-03.
+- [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -98,12 +99,15 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 ## Próxima decisão e entrega
 
-O batch mensal parametrizado foi aceito. A próxima decisão é o isolamento de dados entre `dev` e `portfolio`:
+O isolamento por catálogos foi aceito e parametrizado localmente: `dev` aponta para `pulso_pix_dev`; `prod`, para `pulso_pix_prod`. A configuração ainda não foi validada pela Databricks CLI nem aplicada no workspace.
 
-1. **Catálogos separados, recomendado se disponível:** `pulso_pix_dev` e `pulso_pix_portfolio`, ambos com schemas `bronze`, `silver` e `gold` somente quando necessários. Oferece fronteira mais clara e mantém nomes de camada simples, mas exige permissão e suporte a múltiplos catálogos.
-2. **Um catálogo com schemas por target:** catálogo `pulso_pix` e schemas como `dev_bronze` e `portfolio_bronze`. É mais compatível com permissões restritas, mas multiplica schemas e fornece isolamento lógico menos forte.
+A próxima decisão combina reexecução e histórico da competência mensal:
 
-Depois, ainda será necessário escolher estratégia de escrita e orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
+1. **Bruto imutável + overwrite do mês na Silver (recomendado):** preservar cada resposta original e substituir atomicamente apenas a competência processada na tabela tratada. Remove linhas que desaparecerem da fonte e limita o impacto da reexecução, ao custo de manter versões brutas.
+2. **Bruto imutável + MERGE na Silver:** atualizar e inserir pelo grão, com exclusão explícita das linhas da competência ausentes na nova resposta. É granular, mas mais complexo e sem benefício claro para uma fonte que entrega o mês completo.
+3. **Versões estruturadas append-only:** manter todas as versões também na tabela tratada e exigir seleção da versão atual pelo consumidor. Maximiza histórico, mas aumenta armazenamento e risco de dupla contagem.
+
+Depois, ainda será necessário escolher orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
 
 ## Evidências e limites
 

@@ -3,11 +3,8 @@ bundle:
 
 variables:
   catalogo:
-    description: Catalogo logico; verificar disponibilidade antes de criar dados.
-    default: pulso_pix
-  sufixo_ambiente:
-    description: Sufixo a aplicar aos objetos de dados quando houver implementacao.
-    default: dev
+    description: Catalogo de dados isolado por target; validar permissao antes de criar.
+    default: pulso_pix_dev
 
 workspace:
   root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
@@ -27,8 +24,8 @@ targets:
     default: true
     mode: development
     variables:
-      sufixo_ambiente: dev
-  portfolio:
+      catalogo: pulso_pix_dev
+  prod:
     mode: production
     variables:
-      sufixo_ambiente: portfolio
+      catalogo: pulso_pix_prod

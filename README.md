@@ -2,7 +2,7 @@
 
 Projeto brasileiro de engenharia e produto de dados sobre o Pix, construído com participação ativa de Vidal e apoio do Codex.
 
-**Estado:** convenções e scaffold preparados. Fontes, primeira entrega e arquitetura V0 aguardam investigação e decisão. Ainda não há pipeline, dashboard ou resultado analítico.
+**Estado:** fonte, recorte, batch mensal e isolamento por catálogos definidos; contrato e adaptador local validados. Ainda não há persistência, recurso Databricks, dashboard ou resultado analítico.
 
 O projeto prioriza dados úteis, escolhas explicáveis e evidência. Streaming, simulador e ML só entram com problema real que justifique seu uso.
 
@@ -33,4 +33,4 @@ No Codex, conferir `/skills` e pedir leitura do AGENTS.md e da skill Vidal. A pr
 
 ## Ambientes
 
-`dev` e `portfolio` compartilham o workspace gratuito. O bundle separa caminhos de recursos; isolamento de dados ainda não está implementado. Não tratar o modo `production` como infraestrutura de produção. O bundle inicial não provisiona recursos.
+`dev` e `prod` compartilham o workspace gratuito. O bundle parametriza os catálogos `pulso_pix_dev` e `pulso_pix_prod`; a criação deles ainda depende da validação das permissões no workspace. Não tratar o modo `production` como infraestrutura de produção. O bundle não provisiona recursos.
