@@ -1,7 +1,7 @@
 # 003 — Estratégia de carga da V0
 
-Status: proposto
-Data e hora: 2026-10-03T00:40:16-04:00
+Status: aceito
+Data e hora: 2026-10-03T01:36:35-04:00
 
 ## Contexto
 
@@ -16,14 +16,12 @@ Streaming não foi mantido como opção: a fonte publica agregados mensais por c
 
 ## Decisão
 
-Aguardando escolha de Vidal.
-
-Recomendação técnica: **unidade mensal parametrizada**, com backfill das 12 competências de 2025. A granularidade reduz o impacto da instabilidade observada e deixa explícito o mês processado sem ampliar o escopo funcional da V0.
+Vidal escolheu a **unidade mensal parametrizada**, com backfill das 12 competências de 2025. A granularidade reduz o impacto da instabilidade observada e deixa explícito o mês processado sem ampliar o escopo funcional da V0.
 
 Esta proposta não escolhe tecnologia de orquestração, isolamento entre targets nem operação de escrita. Esses temas serão decididos antes da persistência e da criação de recursos.
 
 ## Consequências
 
-Se a recomendação for aceita, a ingestão terá `ano_mes` explícito, validação antes de persistir e capacidade de repetir apenas uma competência. Em contrapartida, a execução precisará controlar 12 resultados no backfill e respeitar espera entre chamadas.
+A ingestão terá `ano_mes` explícito, validação antes de persistir e capacidade de repetir apenas uma competência. Em contrapartida, a execução precisará controlar 12 resultados no backfill e respeitar espera entre chamadas.
 
 Se o snapshot anual for escolhido, haverá menos unidades de execução, mas falha ou revisão parcial exigirá repetir o conjunto completo e comprovar que a consulta não foi truncada.

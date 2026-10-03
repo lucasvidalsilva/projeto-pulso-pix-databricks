@@ -6,7 +6,7 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025. O contrato local da fonte foi implementado e validado; nenhum dado foi persistido e nenhum recurso Databricks foi criado.
+Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato e o adaptador local da fonte estão implementados; nenhum dado foi persistido e nenhum recurso Databricks foi criado.
 
 A sequência abaixo é uma orientação de investigação, não um pipeline implementado:
 
@@ -35,7 +35,8 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 
 - [001 — Método de desenvolvimento](decisoes/001-metodo-de-desenvolvimento.md): aceito por Vidal.
 - [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): opção 1 aceita por Vidal em 2026-10-03.
-- [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): proposta; aguarda escolha de Vidal.
+- [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): batch mensal parametrizado aceito por Vidal em 2026-10-03.
+- [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -80,6 +81,7 @@ Verificação em 2026-10-03, sem criar recursos:
 - ausentes do `PATH`: `python`, `codex` e `databricks`; o launcher `py` também não encontrou Python instalado;
 - `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
 - por falta da Databricks CLI, não foi possível executar `databricks auth profiles`, `databricks aitools list --scope global` nem `databricks current-user me --profile PULSO_PIX`;
+- não havia navegador ou sessão Databricks aberta disponível para inspeção somente leitura pela interface;
 - 29 skills oficiais Databricks estão presentes no diretório global do Codex, incluindo as centrais para CLI, DABs, descoberta, SQL, Jobs, Pipelines e Unity Catalog. Não há cópia global da skill `vidal-data-engineering`.
 
 A documentação oficial atual descreve a Free Edition como serverless, sujeita a quotas e com internet de saída restrita a domínios confiáveis. Depois da instalação oficial da CLI, ainda será necessário validar autenticação, permissões, catálogo, serverless e acesso de saída ao BCB/IBGE no workspace real.
@@ -96,15 +98,15 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 ## Próxima decisão e entrega
 
-Escolher entre duas estratégias batch:
+O batch mensal parametrizado foi aceito. A próxima decisão é o isolamento de dados entre `dev` e `portfolio`:
 
-1. **Unidade mensal parametrizada (recomendada):** executar e reprocessar um `AnoMes` por vez; o backfill de 2025 terá 12 unidades independentes. Reduz o impacto de falhas e facilita evidência por competência, ao custo de mais chamadas e controle de execução.
-2. **Snapshot anual:** buscar e reprocessar 2025 como uma única unidade lógica. Simplifica a primeira execução, mas aumenta payload, tempo, custo de repetição e impacto de falhas.
+1. **Catálogos separados, recomendado se disponível:** `pulso_pix_dev` e `pulso_pix_portfolio`, ambos com schemas `bronze`, `silver` e `gold` somente quando necessários. Oferece fronteira mais clara e mantém nomes de camada simples, mas exige permissão e suporte a múltiplos catálogos.
+2. **Um catálogo com schemas por target:** catálogo `pulso_pix` e schemas como `dev_bronze` e `portfolio_bronze`. É mais compatível com permissões restritas, mas multiplica schemas e fornece isolamento lógico menos forte.
 
-Streaming foi descartado desta decisão porque a fonte é uma API de consulta com atualização mensal, sem fluxo de eventos ou change feed. Depois da escolha, decidir separadamente isolamento de `dev` e `portfolio`, estratégia de escrita e orquestração antes da primeira persistência. A verificação real do workspace depende da instalação da Databricks CLI atual.
+Depois, ainda será necessário escolher estratégia de escrita e orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato local passou por 21 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura usou a URL produzida pelo código, retornou uma linha de `202501` e passou no validador. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há pipeline, tabela, benchmark, teste Databricks ou deploy.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato e o adaptador mensal passaram por 30 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há pipeline, tabela, benchmark, teste Databricks ou deploy.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
