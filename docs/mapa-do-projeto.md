@@ -6,9 +6,9 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Scaffold e regras de trabalho disponíveis. Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implementados localmente; nenhum dado foi persistido, nenhum recurso Databricks foi criado e nenhum deploy foi executado.
+Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implantados em `dev`. As 12 competências de 2025 foram preservadas no Volume e publicadas na Silver, totalizando 163.161 linhas validadas no grão da fonte.
 
-A sequência abaixo registra o ciclo da V0; as etapas 1–4 têm implementação local e a etapa 5 depende da execução no Databricks:
+A sequência abaixo registra o ciclo da V0; todas as etapas foram executadas para o recorte de 2025:
 
 1. Verificar fonte, grão, cobertura, licença, atualização e acesso.
 2. Escolher a primeira pergunta e a menor entrega útil.
@@ -42,6 +42,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
 - [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): somente `dev` no catálogo `workspace` aceito por Vidal em 2026-10-03.
 - [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): uma `python_wheel_task` ponta a ponta aceita por Vidal em 2026-10-03.
+- [010 — Primeiro consumo analítico da V0](decisoes/010-primeiro-consumo-gold.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -80,20 +81,28 @@ Não presumir que MED tem detalhe municipal ou que dados agregados permitem iden
 
 ## Acesso local e ao workspace
 
-Verificação em 2026-10-03, sem criar recursos:
+Levantamento inicial em 2026-10-03, antes do deploy:
 
 - disponíveis: Git `2.51.2.windows.1`, uv `0.12.22` e Databricks CLI `v1.19.0` instalada pelo WinGet;
 - `python` e `codex` continuam ausentes do `PATH` deste processo; o launcher `py` também não encontrou Python instalado, embora o ambiente gerenciado pelo uv funcione;
 - `uv sync --group dev` concluiu e preparou o ambiente local do projeto; a execução do Python desse ambiente exige acesso ao runtime instalado fora do workspace;
 - Vidal confirmou o uso do perfil `PULSO_PIX`; `current-user me` validou a identidade ativa e a participação nos grupos `admins` e `users`;
-- o workspace é serverless: há um SQL warehouse `2X-Small` parado, nenhum cluster clássico e nenhum Job existente;
+- o workspace é serverless: havia um SQL warehouse `2X-Small` parado, nenhum cluster clássico e nenhum Job existente;
 - os únicos catálogos visíveis são `workspace`, `system` e `samples`; `workspace` é gerenciado e contém apenas `default` e `information_schema`, sem tabelas ou Volumes em `default`;
 - os privilégios visíveis do metastore não incluem `CREATE CATALOG`; a documentação oficial exige esse privilégio para criar os catálogos separados planejados e orienta a Free Edition a usar `workspace.default`;
-- `databricks bundle validate --strict` passou nos targets `dev` e `prod`; nenhum deploy foi executado;
+- `databricks bundle validate --strict` passou nos targets `dev` e `prod`;
 - não havia navegador ou sessão Databricks aberta disponível para inspeção somente leitura pela interface;
 - 29 skills oficiais Databricks estão presentes no diretório global do Codex, incluindo as centrais para CLI, DABs, descoberta, SQL, Jobs, Pipelines e Unity Catalog. Não há cópia global da skill `vidal-data-engineering`.
 
-A documentação oficial atual descreve a Free Edition como serverless, sujeita a quotas e com internet de saída restrita a domínios confiáveis. Autenticação, catálogo e compute foram inspecionados; permissões de criação e acesso de saída ao BCB/IBGE só poderão ser comprovados por uma execução posterior à decisão de isolamento.
+A documentação oficial atual descreve a Free Edition como serverless, sujeita a quotas e com internet de saída restrita a domínios confiáveis. A execução real comprovou acesso de saída ao endpoint do BCB e permissão para criar e gravar nos recursos aprovados.
+
+Validação real no mesmo dia:
+
+- o bundle criou `workspace.bronze`, `workspace.silver`, o Volume gerenciado `workspace.bronze.respostas_pix` e o Job `875157504022557`; `prod` permaneceu sem recursos;
+- o primeiro deploy criou os schemas e o Volume, mas a API rejeitou o Job porque serverless não aceita wheel em `task.libraries`; mover o wheel para `environments[].spec.dependencies` resolveu a causa sem mudar a arquitetura;
+- a tarefa serverless acessou o BCB, persistiu os bytes originais e publicou a tabela Delta gerenciada `workspace.silver.estatisticas_transacoes`;
+- `202501` foi executado duas vezes: a Silver manteve 11.322 linhas e um único `extracao_id`, enquanto o Volume preservou as duas extrações com UUIDs distintos e o mesmo SHA-256;
+- as competências `202502`–`202512` foram executadas sequencialmente e concluíram com sucesso.
 
 ## Opções de V0
 
@@ -105,9 +114,9 @@ A documentação oficial atual descreve a Free Edition como serverless, sujeita 
 
 A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos premissas e permite validar ingestão, preservação do bruto, qualidade e modelagem antes de adicionar junção municipal ou métricas de risco. O recorte é o ano civil de 2025; ampliar a série histórica será uma decisão posterior, não requisito da V0.
 
-## Implementação local da V0
+## Implementação e validação da V0
 
-Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze`, `workspace.silver` e `workspace.gold`. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. A CLI confirmou que recursos podem ser definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
+Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze` e `workspace.silver`; `workspace.gold` fica reservado até existir uma entrega Gold aprovada. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. Os recursos estão definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
 
 A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O fluxo prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; grava os bytes e um `metadados.json` com criação exclusiva antes de validar a resposta. Assim, uma resposta inválida continua disponível para investigação sem chegar à Silver.
 
@@ -115,12 +124,27 @@ Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como úni
 
 O bundle declara apenas no target `dev` os schemas `workspace.bronze` e `workspace.silver`, o Volume gerenciado e o Job serverless. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nome `[dev]` do Job. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
 
-Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador, ML e Gold não entram nesta entrega. A próxima etapa operacional é um deploy controlado em `dev` e uma execução de `202501`; isso exige autorização de execução e poderá comprovar permissões de criação, saída serverless para o BCB, persistência no Volume e comportamento Delta real.
+Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega. O próximo passo depende da [decisão 010](decisoes/010-primeiro-consumo-gold.md): qual primeiro consumo analítico justifica a Gold, ou se a análise deve começar diretamente sobre a Silver.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, o SQL e o overwrite seletivo passaram por 48 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. O wheel foi construído e contém o entrypoint e o SQL. A CLI validou estritamente `dev` com os nomes `workspace.bronze`, `workspace.silver` e `/Volumes/workspace/bronze/respostas_pix`; também confirmou que `prod` resolve sem recursos.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, o SQL e o overwrite seletivo passaram por 48 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e o SQL; a CLI validou estritamente `dev` e `prod`.
 
-A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. Ainda não foram comprovados no serverless a saída de rede para o BCB, as permissões de criação/gravação nem o `replaceWhere` no Delta real. Não há Volume, Job ou tabela criados, benchmark, teste Databricks ou deploy.
+Resultado estrutural da Silver atual:
+
+| Competência | Linhas | Competência | Linhas |
+| --- | ---: | --- | ---: |
+| `202501` | 11.322 | `202507` | 14.739 |
+| `202502` | 11.301 | `202508` | 15.451 |
+| `202503` | 11.428 | `202509` | 15.386 |
+| `202504` | 11.477 | `202510` | 15.468 |
+| `202505` | 11.510 | `202511` | 17.285 |
+| `202506` | 11.662 | `202512` | 16.132 |
+
+Na versão atual, `202501`–`202512` somam 163.161 linhas e 163.161 grupos no grão completo, com zero grupos duplicados, maior multiplicidade igual a 1, zero medidas negativas e zero nulos nos campos críticos de medida e rastreabilidade. Há 12 `extracao_id` na Silver, um por competência corrente, e 12 diretórios mensais no Volume; janeiro possui duas versões brutas por causa do teste de reexecução.
+
+O histórico Delta comprova 13 operações `WRITE`, todas com `mode=Overwrite` e predicado `ano_mes = AAAAMM`. A segunda carga de janeiro leu a versão 0, removeu 11.322 linhas e escreveu 11.322, sem afetar outras competências. O runtime serverless também executou três operações automáticas `OPTIMIZE`; elas são comportamento observado da plataforma, não um recurso configurado pelo projeto.
+
+A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod`, Gold, dashboard ou inferência sobre transações individuais.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
