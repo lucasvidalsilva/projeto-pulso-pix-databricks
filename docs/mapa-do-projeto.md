@@ -23,7 +23,7 @@ A sequência abaixo é uma orientação de investigação, não um pipeline impl
 | Participação | Vidal escolhe arquitetura; agente executa detalhes e etapas |
 | Código | Português, SQL declarativo; Python/PySpark conforme necessidade |
 | Organização | Contexto próximo, menos arquivos; notebooks conforme propósito |
-| Dados | Medallion como referência, bruto preservado, qualidade por impacto |
+| Dados | Medallion como referência; bruto em `bronze.respostas_pix`; qualidade por impacto |
 | Catálogos | `pulso_pix_dev` e `pulso_pix_prod`; sujeitos à validação no workspace |
 | Ambientes | `dev` e `prod` no mesmo workspace; isolamento por catálogo |
 | Documentação | Este mapa + ADRs curtos + README de entrada |
@@ -38,7 +38,8 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): batch mensal parametrizado aceito por Vidal em 2026-10-03.
 - [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): catálogos separados e nomenclatura `dev`/`prod` aceitos por Vidal em 2026-10-03.
 - [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): bruto imutável e overwrite mensal da Silver aceitos por Vidal em 2026-10-03.
-- [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): proposta; aguarda escolha de Vidal.
+- [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): Volume gerenciado `bronze.respostas_pix` aceito por Vidal em 2026-10-03.
+- [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -102,15 +103,17 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 O isolamento por catálogos foi aceito e parametrizado localmente: `dev` aponta para `pulso_pix_dev`; `prod`, para `pulso_pix_prod`. A configuração ainda não foi validada pela Databricks CLI nem aplicada no workspace.
 
-A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. A próxima decisão é onde preservar o bruto:
+A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O contrato local prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; a gravação ainda não foi implementada nem executada.
 
-1. **Volume gerenciado no schema `bronze` (recomendado):** guardar o JSON original em `respostas_pix/estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`. É o objeto indicado pela Databricks para arquivos JSON de ingestão, preserva bytes e mantém governança do Unity Catalog. Exige `CREATE VOLUME`/`WRITE VOLUME` e validação no workspace.
-2. **Tabela Delta gerenciada no schema `bronze`:** uma linha por extração, com metadados e o conteúdo bruto em `BINARY` ou `STRING`. Facilita consulta SQL, mas usa uma tabela para um artefato não tabular, aumenta o tamanho das linhas e mistura armazenamento do envelope com sua interpretação.
+A próxima decisão é a orquestração:
 
-My Files/Workspace Files não foram mantidos como opção por serem superfícies pessoais ou de workspace, sem a mesma fronteira de governança do catálogo. Volume externo também não entra: a Free Edition não oferece localização de armazenamento personalizada. Depois, ainda será necessário escolher orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
+1. **Lakeflow Job com tarefas batch (recomendado):** recebe `ano_mes`, coordena ingestão Python e publicação Silver, com dependências, retries e histórico de execução em um único recurso. A transformação pode permanecer em SQL. É a menor solução para a V0, mas os checks e o overwrite seletivo ficam explícitos no código.
+2. **Lakeflow Job + Spark Declarative Pipeline:** o Job preserva o bruto e aciona um Pipeline batch para a Silver. Acrescenta expectativas e linhagem administradas à transformação, ao custo de dois recursos e maior complexidade operacional para uma única fonte.
+
+Pipeline isolado não resolve sozinho os efeitos da chamada HTTP e da escrita imutável. Streaming e Auto Loader permanecem fora do escopo. A verificação real do workspace, do Volume e de qualquer recurso escolhido depende da instalação da Databricks CLI atual.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato e o adaptador mensal passaram por 30 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há pipeline, tabela, benchmark, teste Databricks ou deploy.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, o adaptador mensal e o preparo do artefato bruto passaram por 40 testes unitários, lint e verificação de formatação; uma verificação de integração somente leitura baixou uma linha de `202501` pelo adaptador e passou no validador. A resposta bruta continua disponível em bytes para persistência futura, sem transformação silenciosa. A instabilidade transitória do endpoint e a ausência da CLI impedem classificar a fonte ou o workspace como validados para execução produtiva. Ainda não há Volume criado, pipeline, tabela, benchmark, teste Databricks ou deploy.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.

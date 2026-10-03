@@ -1,7 +1,7 @@
 # 006 — Armazenamento da resposta bruta
 
-Status: proposto
-Data e hora: 2026-10-03T09:25:13-04:00
+Status: aceito
+Data e hora: 2026-10-03T09:43:19-04:00
 
 ## Contexto
 
@@ -16,14 +16,12 @@ My Files e Workspace Files não foram mantidos como opções porque o bruto deve
 
 ## Decisão
 
-Aguardando escolha de Vidal.
+Vidal escolheu **volume gerenciado `bronze.respostas_pix`**. Ele corresponde ao formato real do artefato, mantém a resposta exata fora da tabela tratada e evita introduzir armazenamento externo ou credenciais de nuvem.
 
-Recomendação técnica: **volume gerenciado `bronze.respostas_pix`**. Ele corresponde ao formato real do artefato, mantém a resposta exata fora da tabela tratada e evita introduzir armazenamento externo ou credenciais de nuvem.
-
-Esta proposta não cria o volume. A capacidade e as permissões serão verificadas antes de qualquer persistência.
+Esta decisão não cria o volume. A capacidade e as permissões serão verificadas antes de qualquer persistência. Não haverá troca automática para uma tabela caso a Free Edition não permita criar ou escrever no Volume; uma alternativa deverá voltar à decisão de Vidal.
 
 ## Consequências
 
-Com o volume, a ingestão deverá criar um identificador único de extração, calcular hash do conteúdo, gravar sem sobrescrever versões anteriores e só então transformar a resposta validada. Consultas analíticas continuarão na tabela Silver gerenciada.
+Com o volume, a ingestão deverá criar um UUID de extração, calcular SHA-256 e tamanho do conteúdo, registrar instante UTC e URL de origem, gravar sem sobrescrever versões anteriores e só então transformar a resposta validada. O caminho acordado é `estatisticas_transacoes/ano_mes=AAAAMM/extracao_id=<uuid>/resposta.json`. Consultas analíticas continuarão na tabela Silver gerenciada.
 
 Com a tabela Bronze, a auditoria por SQL seria mais direta, mas o conteúdo bruto ficaria acoplado ao modelo tabular e exigiria leitura de linhas grandes para recuperar a resposta original.

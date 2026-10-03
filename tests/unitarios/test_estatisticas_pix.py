@@ -1,4 +1,6 @@
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta, timezone
+from hashlib import sha256
 from json import dumps
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
@@ -11,6 +13,7 @@ from pulso_pix.estatisticas_pix import (
     baixar_resposta,
     construir_url,
     extrair_registros,
+    preparar_artefato_bruto,
     validar_resposta,
 )
 
@@ -91,6 +94,88 @@ def test_baixa_resposta_mensal(monkeypatch):
     assert chamadas[0][1] == 60
     assert "$filter=AnoMes%20eq%20202501" in chamadas[0][0].full_url
     assert chamadas[0][0].headers["Accept"] == "application/json"
+
+
+def test_prepara_artefato_bruto_imutavel_e_rastreavel():
+    conteudo = b'{"value": []}'
+    extraido_em = datetime(2026, 10, 3, 10, 30, tzinfo=timezone(timedelta(hours=-4)))
+
+    artefato = preparar_artefato_bruto(
+        conteudo=conteudo,
+        ano_mes=202501,
+        extracao_id="A0EBC999-F9D4-4A03-A300-3B793D7FBF5C",
+        extraido_em=extraido_em,
+    )
+
+    assert artefato.conteudo == conteudo
+    assert artefato.ano_mes == 202501
+    assert artefato.extracao_id == "a0ebc999-f9d4-4a03-a300-3b793d7fbf5c"
+    assert artefato.extraido_em == datetime(2026, 10, 3, 14, 30, tzinfo=UTC)
+    assert artefato.url_origem == construir_url(202501)
+    assert artefato.sha256 == sha256(conteudo).hexdigest()
+    assert artefato.tamanho_bytes == len(conteudo)
+    assert artefato.caminho_relativo == (
+        "estatisticas_transacoes/ano_mes=202501/"
+        "extracao_id=a0ebc999-f9d4-4a03-a300-3b793d7fbf5c/resposta.json"
+    )
+    assert artefato.caminho_volume("pulso_pix_dev") == (
+        "/Volumes/pulso_pix_dev/bronze/respostas_pix/"
+        "estatisticas_transacoes/ano_mes=202501/"
+        "extracao_id=a0ebc999-f9d4-4a03-a300-3b793d7fbf5c/resposta.json"
+    )
+
+
+def test_extracoes_distintas_nao_compartilham_caminho():
+    instante = datetime(2026, 10, 3, tzinfo=UTC)
+    primeira = preparar_artefato_bruto(
+        b"resposta",
+        202501,
+        "31b10af6-a8ab-4162-976c-29de93436840",
+        instante,
+    )
+    segunda = preparar_artefato_bruto(
+        b"resposta",
+        202501,
+        "d086989c-763a-4596-af79-e516b631376d",
+        instante,
+    )
+
+    assert primeira.caminho_relativo != segunda.caminho_relativo
+
+
+@pytest.mark.parametrize(
+    ("alteracao", "mensagem"),
+    [
+        ({"conteudo": "texto"}, "conteudo"),
+        ({"extracao_id": "nao-e-uuid"}, "extracao_id"),
+        ({"extraido_em": "2026-10-03T00:00:00Z"}, "data e hora"),
+        ({"extraido_em": datetime(2026, 10, 3, tzinfo=UTC).replace(tzinfo=None)}, "fuso horário"),
+    ],
+)
+def test_rejeita_metadado_bruto_invalido(alteracao, mensagem):
+    argumentos = {
+        "conteudo": b"",
+        "ano_mes": 202501,
+        "extracao_id": "31b10af6-a8ab-4162-976c-29de93436840",
+        "extraido_em": datetime(2026, 10, 3, tzinfo=UTC),
+    }
+    argumentos.update(alteracao)
+
+    with pytest.raises((TypeError, ValueError), match=mensagem):
+        preparar_artefato_bruto(**argumentos)
+
+
+@pytest.mark.parametrize("catalogo", ["PulsoPix", "pulso-pix", "../prod", ""])
+def test_rejeita_catalogo_inseguro_no_caminho_volume(catalogo):
+    artefato = preparar_artefato_bruto(
+        b"resposta",
+        202501,
+        "31b10af6-a8ab-4162-976c-29de93436840",
+        datetime(2026, 10, 3, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValueError, match="catalogo"):
+        artefato.caminho_volume(catalogo)
 
 
 def test_repete_falha_transitoria_com_espera_exponencial(monkeypatch):

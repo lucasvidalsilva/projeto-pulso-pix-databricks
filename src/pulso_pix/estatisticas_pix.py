@@ -1,11 +1,16 @@
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from hashlib import sha256
 from json import JSONDecodeError, loads
 from math import isfinite
 from numbers import Integral, Real
+from re import fullmatch
 from time import sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
+from uuid import UUID
 
 URL_ESTATISTICAS_PIX = (
     "https://olinda.bcb.gov.br/olinda/servico/Pix_DadosAbertos/versao/v1/odata/"
@@ -25,6 +30,25 @@ CAMPOS_DIMENSAO = (
 )
 CAMPOS_MEDIDA = ("VALOR", "QUANTIDADE")
 CAMPOS_OBRIGATORIOS = ("AnoMes", *CAMPOS_DIMENSAO, *CAMPOS_MEDIDA)
+SCHEMA_BRONZE = "bronze"
+VOLUME_RESPOSTAS_PIX = "respostas_pix"
+
+
+@dataclass(frozen=True)
+class ArtefatoBruto:
+    conteudo: bytes = field(repr=False)
+    ano_mes: int
+    extracao_id: str
+    extraido_em: datetime
+    url_origem: str
+    sha256: str
+    tamanho_bytes: int
+    caminho_relativo: str
+
+    def caminho_volume(self, catalogo: str) -> str:
+        if fullmatch(r"[a-z][a-z0-9_]*", catalogo) is None:
+            raise ValueError("catalogo deve ser um identificador snake_case")
+        return f"/Volumes/{catalogo}/{SCHEMA_BRONZE}/{VOLUME_RESPOSTAS_PIX}/{self.caminho_relativo}"
 
 
 class ContratoFonteInvalido(ValueError):
@@ -33,6 +57,43 @@ class ContratoFonteInvalido(ValueError):
 
 class FontePixIndisponivel(RuntimeError):
     pass
+
+
+def preparar_artefato_bruto(
+    conteudo: bytes,
+    ano_mes: int,
+    extracao_id: str,
+    extraido_em: datetime,
+) -> ArtefatoBruto:
+    _validar_ano_mes(ano_mes)
+    if not isinstance(conteudo, bytes):
+        raise TypeError("conteudo deve ser bytes")
+
+    try:
+        extracao_id_normalizado = str(UUID(extracao_id))
+    except (AttributeError, TypeError, ValueError) as erro:
+        raise ValueError("extracao_id deve ser um UUID válido") from erro
+
+    if not isinstance(extraido_em, datetime):
+        raise TypeError("extraido_em deve ser uma data e hora")
+    if extraido_em.tzinfo is None or extraido_em.utcoffset() is None:
+        raise ValueError("extraido_em deve incluir fuso horário")
+    extraido_em_utc = extraido_em.astimezone(UTC)
+    caminho_relativo = (
+        f"estatisticas_transacoes/ano_mes={ano_mes}/"
+        f"extracao_id={extracao_id_normalizado}/resposta.json"
+    )
+
+    return ArtefatoBruto(
+        conteudo=conteudo,
+        ano_mes=ano_mes,
+        extracao_id=extracao_id_normalizado,
+        extraido_em=extraido_em_utc,
+        url_origem=construir_url(ano_mes),
+        sha256=sha256(conteudo).hexdigest(),
+        tamanho_bytes=len(conteudo),
+        caminho_relativo=caminho_relativo,
+    )
 
 
 def construir_url(ano_mes: int, limite: int | None = None) -> str:
