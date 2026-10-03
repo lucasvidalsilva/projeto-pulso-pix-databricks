@@ -1,7 +1,7 @@
 # 005 — Reexecução e histórico mensal
 
-Status: proposto
-Data e hora: 2026-10-03T08:46:23-04:00
+Status: aceito
+Data e hora: 2026-10-03T09:25:13-04:00
 
 ## Contexto
 
@@ -15,14 +15,12 @@ Três opções são viáveis:
 
 ## Decisão
 
-Aguardando escolha de Vidal.
+Vidal escolheu **resposta bruta imutável e overwrite seletivo do mês na Silver**. O comportamento corresponde à fotografia mensal completa da fonte, torna a reexecução idempotente no dado corrente e preserva o histórico onde ele tem maior valor: a evidência bruta.
 
-Recomendação técnica: **resposta bruta imutável e overwrite seletivo do mês na Silver**. O comportamento corresponde à fotografia mensal completa da fonte, torna a reexecução idempotente no dado corrente e preserva o histórico onde ele tem maior valor: a evidência bruta.
-
-Esta proposta não escolhe ainda entre Job e Pipeline nem cria tabelas, volumes ou schemas.
+Esta decisão não escolhe ainda entre Job e Pipeline nem cria tabelas, volumes ou schemas.
 
 ## Consequências
 
-Na opção recomendada, uma falha antes da substituição não altera a competência publicada; uma execução concluída troca somente o mês validado. Será necessário definir metadados mínimos da extração e retenção do bruto antes da implementação física.
+Uma falha antes da substituição não altera a competência publicada; uma execução concluída troca somente o mês validado. Será necessário definir metadados mínimos da extração e retenção do bruto antes da implementação física.
 
 MERGE ou append-only na Silver adicionariam flexibilidade de histórico estruturado, mas exigiriam mais lógica de consumo e qualidade sem uma necessidade observada na V0.

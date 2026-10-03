@@ -37,7 +37,8 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [002 — Primeira entrega de dados Pix](decisoes/002-primeira-entrega-pix.md): opção 1 aceita por Vidal em 2026-10-03.
 - [003 — Estratégia de carga da V0](decisoes/003-estrategia-de-carga-v0.md): batch mensal parametrizado aceito por Vidal em 2026-10-03.
 - [004 — Isolamento de dados por target](decisoes/004-isolamento-dados-target.md): catálogos separados e nomenclatura `dev`/`prod` aceitos por Vidal em 2026-10-03.
-- [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): proposta; aguarda escolha de Vidal.
+- [005 — Reexecução e histórico mensal](decisoes/005-reexecucao-historico-mensal.md): bruto imutável e overwrite mensal da Silver aceitos por Vidal em 2026-10-03.
+- [006 — Armazenamento da resposta bruta](decisoes/006-armazenamento-bruto.md): proposta; aguarda escolha de Vidal.
 
 ## Fontes investigadas
 
@@ -101,13 +102,12 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 O isolamento por catálogos foi aceito e parametrizado localmente: `dev` aponta para `pulso_pix_dev`; `prod`, para `pulso_pix_prod`. A configuração ainda não foi validada pela Databricks CLI nem aplicada no workspace.
 
-A próxima decisão combina reexecução e histórico da competência mensal:
+A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. A próxima decisão é onde preservar o bruto:
 
-1. **Bruto imutável + overwrite do mês na Silver (recomendado):** preservar cada resposta original e substituir atomicamente apenas a competência processada na tabela tratada. Remove linhas que desaparecerem da fonte e limita o impacto da reexecução, ao custo de manter versões brutas.
-2. **Bruto imutável + MERGE na Silver:** atualizar e inserir pelo grão, com exclusão explícita das linhas da competência ausentes na nova resposta. É granular, mas mais complexo e sem benefício claro para uma fonte que entrega o mês completo.
-3. **Versões estruturadas append-only:** manter todas as versões também na tabela tratada e exigir seleção da versão atual pelo consumidor. Maximiza histórico, mas aumenta armazenamento e risco de dupla contagem.
+1. **Volume gerenciado no schema `bronze` (recomendado):** guardar o JSON original em `respostas_pix/estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`. É o objeto indicado pela Databricks para arquivos JSON de ingestão, preserva bytes e mantém governança do Unity Catalog. Exige `CREATE VOLUME`/`WRITE VOLUME` e validação no workspace.
+2. **Tabela Delta gerenciada no schema `bronze`:** uma linha por extração, com metadados e o conteúdo bruto em `BINARY` ou `STRING`. Facilita consulta SQL, mas usa uma tabela para um artefato não tabular, aumenta o tamanho das linhas e mistura armazenamento do envelope com sua interpretação.
 
-Depois, ainda será necessário escolher orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
+My Files/Workspace Files não foram mantidos como opção por serem superfícies pessoais ou de workspace, sem a mesma fronteira de governança do catálogo. Volume externo também não entra: a Free Edition não oferece localização de armazenamento personalizada. Depois, ainda será necessário escolher orquestração antes da primeira persistência. A verificação real do workspace pela CLI depende da instalação da Databricks CLI atual.
 
 ## Evidências e limites
 
