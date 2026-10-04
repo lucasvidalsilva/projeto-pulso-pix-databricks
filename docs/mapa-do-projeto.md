@@ -6,7 +6,7 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implantados em `dev`. As 12 competências de 2025 foram preservadas no Volume e publicadas na Silver, totalizando 163.161 linhas validadas no grão da fonte.
+Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implantados em `dev`. As 12 competências de 2025 foram preservadas no Volume e publicadas na Silver, totalizando 163.161 linhas validadas no grão da fonte. A primeira Gold aprovada, `workspace.gold.uso_pix_mensal`, materializa 16.496 combinações mensais reconciliadas com a Silver.
 
 A sequência abaixo registra o ciclo da V0; todas as etapas foram executadas para o recorte de 2025:
 
@@ -42,7 +42,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [007 — Orquestração da V0](decisoes/007-orquestracao-v0.md): Lakeflow Job batch parametrizado aceito por Vidal em 2026-10-03.
 - [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): somente `dev` no catálogo `workspace` aceito por Vidal em 2026-10-03.
 - [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): uma `python_wheel_task` ponta a ponta aceita por Vidal em 2026-10-03.
-- [010 — Primeiro consumo analítico da V0](decisoes/010-primeiro-consumo-gold.md): proposta; aguarda escolha de Vidal.
+- [010 — Primeiro consumo analítico da V0](decisoes/010-primeiro-consumo-gold.md): Gold combinada aceita por Vidal em 2026-10-04.
 
 ## Fontes investigadas
 
@@ -116,19 +116,21 @@ A opção 1 foi escolhida por Vidal. Ela entrega entendimento útil com menos pr
 
 ## Implementação e validação da V0
 
-Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze` e `workspace.silver`; `workspace.gold` fica reservado até existir uma entrega Gold aprovada. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. Os recursos estão definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
+Vidal escolheu executar dados reais somente em `dev`, usando `workspace.bronze`, `workspace.silver` e, após a decisão 010, `workspace.gold`. O target `prod` permanece para validação de configuração, sem recursos de dados implantáveis. Os recursos estão definidos sob `targets.dev.resources`, mantendo a restrição estrutural no bundle.
 
 A resposta bruta imutável e o overwrite seletivo de `ano_mes` na Silver foram aceitos. Vidal escolheu preservar os bytes originais em um Volume gerenciado `bronze.respostas_pix`. O fluxo prepara UUID de extração, instante UTC, URL, SHA-256, tamanho e o caminho `estatisticas_transacoes/ano_mes=.../extracao_id=.../resposta.json`; grava os bytes e um `metadados.json` com criação exclusiva antes de validar a resposta. Assim, uma resposta inválida continua disponível para investigação sem chegar à Silver.
 
-Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0, e uma única `python_wheel_task` ponta a ponta. O wheel executa ingestão e qualidade em Python, carrega a transformação declarativa de um SQL empacotado e grava `workspace.silver.estatisticas_transacoes` em Delta. O grão continua sendo mês × PF/PJ pagador × PF/PJ recebedor × regiões × faixas etárias × forma de iniciação × natureza × finalidade; `replaceWhere` limita o overwrite à competência solicitada.
+Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como único recurso de orquestração da V0, e uma única `python_wheel_task` ponta a ponta. O wheel executa ingestão e qualidade em Python, carrega transformações declarativas de SQLs empacotados e grava tabelas Delta. A Silver `workspace.silver.estatisticas_transacoes` mantém o grão mês × PF/PJ pagador × PF/PJ recebedor × regiões × faixas etárias × forma de iniciação × natureza × finalidade.
 
-O bundle declara apenas no target `dev` os schemas `workspace.bronze` e `workspace.silver`, o Volume gerenciado e o Job serverless. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nome `[dev]` do Job. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
+A Gold `workspace.gold.uso_pix_mensal` responde à pergunta aprovada no grão mês × natureza × forma de iniciação × região pagadora × região recebedora, com `valor_total` e `quantidade_total`. A mesma tarefa publica primeiro a Silver e depois a Gold; ambas usam `replaceWhere` limitado à competência solicitada. Não há transação entre as duas tabelas: uma falha parcial deixa o Job com falha, e a reexecução mensal idempotente é o mecanismo de reparo.
 
-Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega. O próximo passo depende da [decisão 010](decisoes/010-primeiro-consumo-gold.md): qual primeiro consumo analítico justifica a Gold, ou se a análise deve começar diretamente sobre a Silver.
+O bundle declara apenas no target `dev` os schemas `workspace.bronze`, `workspace.silver` e `workspace.gold`, o Volume gerenciado e o Job serverless. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nome `[dev]` do Job. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
+
+Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega. Dashboard também não foi aprovado. O próximo passo útil é escolher uma forma concreta de consumo da Gold — consulta versionada, notebook analítico ou dashboard — somente quando houver consumidor e pergunta definidos.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, o SQL e o overwrite seletivo passaram por 48 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e o SQL; a CLI validou estritamente `dev` e `prod`.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, os SQLs e o overwrite seletivo passaram por 50 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e os SQLs de Silver e Gold; a CLI validou estritamente `dev` e `prod`.
 
 Resultado estrutural da Silver atual:
 
@@ -141,10 +143,23 @@ Resultado estrutural da Silver atual:
 | `202505` | 11.510 | `202511` | 17.285 |
 | `202506` | 11.662 | `202512` | 16.132 |
 
-Na versão atual, `202501`–`202512` somam 163.161 linhas e 163.161 grupos no grão completo, com zero grupos duplicados, maior multiplicidade igual a 1, zero medidas negativas e zero nulos nos campos críticos de medida e rastreabilidade. Há 12 `extracao_id` na Silver, um por competência corrente, e 12 diretórios mensais no Volume; janeiro possui duas versões brutas por causa do teste de reexecução.
+Na versão atual, `202501`–`202512` somam 163.161 linhas e 163.161 grupos no grão completo, com zero grupos duplicados, maior multiplicidade igual a 1, zero medidas negativas e zero nulos nos campos críticos de medida e rastreabilidade. Há 12 `extracao_id` na Silver, um por competência corrente, e 12 diretórios mensais no Volume. Após a retrocarga da Gold, o Volume preserva 25 versões brutas: três para janeiro e duas para cada outro mês.
 
-O histórico Delta comprova 13 operações `WRITE`, todas com `mode=Overwrite` e predicado `ano_mes = AAAAMM`. A segunda carga de janeiro leu a versão 0, removeu 11.322 linhas e escreveu 11.322, sem afetar outras competências. O runtime serverless também executou três operações automáticas `OPTIMIZE`; elas são comportamento observado da plataforma, não um recurso configurado pelo projeto.
+O histórico Delta da Silver comprova 25 operações `WRITE`, todas com `mode=Overwrite` e predicado `ano_mes = AAAAMM`. O runtime serverless também executou nove operações automáticas `OPTIMIZE`; elas são comportamento observado da plataforma, não um recurso configurado pelo projeto.
 
-A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod`, Gold, dashboard ou inferência sobre transações individuais.
+Resultado estrutural da Gold validada em 2026-10-04:
+
+| Competência | Linhas | Competência | Linhas |
+| --- | ---: | --- | ---: |
+| `202501` | 1.265 | `202507` | 1.382 |
+| `202502` | 1.271 | `202508` | 1.437 |
+| `202503` | 1.274 | `202509` | 1.456 |
+| `202504` | 1.292 | `202510` | 1.440 |
+| `202505` | 1.301 | `202511` | 1.497 |
+| `202506` | 1.346 | `202512` | 1.535 |
+
+As 16.496 linhas correspondem a 16.496 grupos no grão escolhido, com zero duplicidades, maior multiplicidade igual a 1, zero medidas nulas ou negativas e mínimos observados de R$ 0,01 e uma transação. A reconciliação por mês encontrou 12 meses comparados, nenhum ausente e diferença máxima zero para valor e quantidade. O histórico Delta da Gold registra 12 `WRITE`, um por competência, todos com overwrite seletivo mensal. As 12 execuções da retrocarga terminaram com `SUCCESS` no Job `875157504022557`.
+
+A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod`, dashboard ou inferência sobre transações individuais.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
