@@ -18,7 +18,9 @@ from pulso_pix.estatisticas_pix import (
 )
 
 TABELA_ESTATISTICAS = "estatisticas_transacoes"
+TABELA_USO_PIX = "uso_pix_mensal"
 VISAO_ENTRADA = "estatisticas_pix_entrada"
+VISAO_SILVER_MES = "estatisticas_pix_silver_mes"
 
 
 @dataclass(frozen=True)
@@ -27,7 +29,8 @@ class ResultadoExecucao:
     extracao_id: str
     caminho_resposta: str
     registros_publicados: int
-    tabela: str
+    tabela_silver: str
+    tabela_gold: str
 
 
 def preparar_linhas_entrada(
@@ -68,8 +71,28 @@ def publicar_silver(
     quadro_entrada = spark.createDataFrame(linhas, schema=_schema_entrada())
     quadro_entrada.createOrReplaceTempView(VISAO_ENTRADA)
     quadro_silver = spark.sql(_carregar_sql_transformacao())
+    quadro_silver.createOrReplaceTempView(VISAO_SILVER_MES)
     (
         quadro_silver.write.format("delta")
+        .mode("overwrite")
+        .option("replaceWhere", f"ano_mes = {artefato.ano_mes}")
+        .saveAsTable(tabela)
+    )
+    return tabela
+
+
+def publicar_gold(
+    spark: object,
+    artefato: ArtefatoBruto,
+    catalogo: str,
+    schema_gold: str,
+) -> str:
+    validar_identificador(catalogo, "catalogo")
+    validar_identificador(schema_gold, "schema_gold")
+    tabela = f"{catalogo}.{schema_gold}.{TABELA_USO_PIX}"
+    quadro_gold = spark.sql(_carregar_sql_gold())
+    (
+        quadro_gold.write.format("delta")
         .mode("overwrite")
         .option("replaceWhere", f"ano_mes = {artefato.ano_mes}")
         .saveAsTable(tabela)
@@ -82,12 +105,14 @@ def executar(
     catalogo: str,
     schema_bronze: str,
     schema_silver: str,
+    schema_gold: str,
     volume: str,
     spark: object | None = None,
 ) -> ResultadoExecucao:
     validar_identificador(catalogo, "catalogo")
     validar_identificador(schema_bronze, "schema_bronze")
     validar_identificador(schema_silver, "schema_silver")
+    validar_identificador(schema_gold, "schema_gold")
     validar_identificador(volume, "volume")
 
     conteudo = baixar_resposta(ano_mes)
@@ -101,7 +126,7 @@ def executar(
     caminho_resposta, _ = gravar_artefato_bruto(artefato, raiz_volume)
     registros = extrair_registros(conteudo, ano_mes)
     sessao_spark = spark if spark is not None else _obter_spark()
-    tabela = publicar_silver(
+    tabela_silver = publicar_silver(
         spark=sessao_spark,
         registros=registros,
         artefato=artefato,
@@ -109,12 +134,19 @@ def executar(
         schema_silver=schema_silver,
         caminho_resposta=caminho_resposta.as_posix(),
     )
+    tabela_gold = publicar_gold(
+        spark=sessao_spark,
+        artefato=artefato,
+        catalogo=catalogo,
+        schema_gold=schema_gold,
+    )
     return ResultadoExecucao(
         ano_mes=ano_mes,
         extracao_id=artefato.extracao_id,
         caminho_resposta=caminho_resposta.as_posix(),
         registros_publicados=len(registros),
-        tabela=tabela,
+        tabela_silver=tabela_silver,
+        tabela_gold=tabela_gold,
     )
 
 
@@ -125,6 +157,7 @@ def main() -> None:
         catalogo=argumentos.catalogo,
         schema_bronze=argumentos.schema_bronze,
         schema_silver=argumentos.schema_silver,
+        schema_gold=argumentos.schema_gold,
         volume=argumentos.volume,
     )
     print(dumps(resultado.__dict__, ensure_ascii=False, sort_keys=True))
@@ -136,6 +169,7 @@ def _criar_analisador() -> argparse.ArgumentParser:
     analisador.add_argument("--catalogo", required=True)
     analisador.add_argument("--schema-bronze", required=True)
     analisador.add_argument("--schema-silver", required=True)
+    analisador.add_argument("--schema-gold", required=True)
     analisador.add_argument("--volume", required=True)
     return analisador
 
@@ -158,6 +192,10 @@ def _decimal_centavos(valor: object, indice: int) -> Decimal:
 
 def _carregar_sql_transformacao() -> str:
     return files("pulso_pix").joinpath("sql", "estatisticas_transacoes.sql").read_text("utf-8")
+
+
+def _carregar_sql_gold() -> str:
+    return files("pulso_pix").joinpath("sql", "uso_pix_mensal.sql").read_text("utf-8")
 
 
 def _schema_entrada() -> object:

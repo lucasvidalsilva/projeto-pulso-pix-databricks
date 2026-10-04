@@ -1,7 +1,7 @@
 # 010 — Primeiro consumo analítico da V0
 
-Status: proposto
-Data e hora: 2026-10-03T18:21:09-04:00
+Status: aceito
+Data e hora: 2026-10-04T18:04:14-04:00
 
 ## Contexto
 
@@ -15,10 +15,12 @@ Três opções são viáveis:
 
 ## Decisão
 
-Aguardando escolha de Vidal.
+Vidal escolheu a opção 1: uma Gold combinada `workspace.gold.uso_pix_mensal`, no grão mês × natureza × forma de iniciação × região pagadora × região recebedora, com `valor_total` e `quantidade_total`.
 
-Recomendação técnica: **opção 1**, porque responde aos três eixos da pergunta aprovada com uma única tabela ainda pequena. A Gold deve somar somente `valor` e `quantidade`; métricas derivadas entram apenas quando houver definição e consumidor claros.
+A publicação reutiliza a `python_wheel_task` e o overwrite seletivo mensal já aceitos nas decisões 009 e 005. Métricas derivadas entram apenas quando houver definição e consumidor claros.
 
 ## Consequências
 
-A opção 1 preserva cruzamentos e reduz o volume, mas exige documentar o grão para evitar agregações incorretas. A opção 2 simplifica cada consumo e reduz mais o volume, ao custo de perder cruzamentos e manter duas tabelas. A opção 3 adia o contrato Gold e favorece exploração, mas oferece menos reutilização e governança semântica.
+A Gold preserva os cruzamentos da pergunta da V0 e reduz o volume exposto ao consumidor, mas seu grão precisa permanecer explícito para evitar agregações incorretas. A tabela não carrega as dimensões PF/PJ, faixa etária e finalidade da Silver; análises nesses eixos continuam consultando a Silver até existir outro consumo aprovado.
+
+Silver e Gold são gravadas em sequência pela mesma tarefa, sem transação entre tabelas. Se a gravação da Gold falhar depois da Silver, o Job termina com falha e a reexecução mensal idempotente recompõe as duas camadas; consumidores não devem interpretar sucesso parcial como publicação concluída.

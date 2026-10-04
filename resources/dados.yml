@@ -10,6 +10,10 @@ targets:
           name: ${var.schema_silver}
           catalog_name: ${var.catalogo}
           comment: Camada tratada do Pulso Pix em desenvolvimento.
+        gold:
+          name: ${var.schema_gold}
+          catalog_name: ${var.catalogo}
+          comment: Camada de consumo analítico do Pulso Pix em desenvolvimento.
       volumes:
         respostas_pix:
           name: ${var.volume_respostas_pix}

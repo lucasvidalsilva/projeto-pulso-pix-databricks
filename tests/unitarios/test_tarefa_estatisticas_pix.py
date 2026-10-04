@@ -1,12 +1,15 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from sqlite3 import connect
 
 import pytest
 
 from pulso_pix.estatisticas_pix import ContratoFonteInvalido, preparar_artefato_bruto
 from pulso_pix.tarefa_estatisticas_pix import (
+    _carregar_sql_gold,
     preparar_linhas_entrada,
+    publicar_gold,
     publicar_silver,
 )
 
@@ -106,6 +109,10 @@ class QuadroEntradaFalso:
 class QuadroSaidaFalso:
     def __init__(self):
         self.write = EscritaFalsa()
+        self.visao = None
+
+    def createOrReplaceTempView(self, visao):
+        self.visao = visao
 
 
 class SparkFalso:
@@ -144,7 +151,58 @@ def test_publica_apenas_mes_escolhido_com_sql_versionado(monkeypatch, registro_v
     assert tabela == "workspace.silver.estatisticas_transacoes"
     assert spark.conf.valores == {"spark.sql.session.timeZone": "UTC"}
     assert spark.entrada.visao == "estatisticas_pix_entrada"
+    assert spark.saida.visao == "estatisticas_pix_silver_mes"
     assert "PAG_PFPJ AS pagador_pf_pj" in spark.consulta
+    assert spark.saida.write.formato == "delta"
+    assert spark.saida.write.modo == "overwrite"
+    assert spark.saida.write.opcoes == {"replaceWhere": "ano_mes = 202501"}
+    assert spark.saida.write.tabela == tabela
+
+
+def test_agrega_gold_no_grao_escolhido():
+    conexao = connect(":memory:")
+    conexao.execute(
+        """
+        CREATE TABLE estatisticas_pix_silver_mes (
+          ano_mes INTEGER,
+          natureza TEXT,
+          forma_iniciacao TEXT,
+          regiao_pagador TEXT,
+          regiao_recebedor TEXT,
+          valor NUMERIC,
+          quantidade INTEGER
+        )
+        """
+    )
+    conexao.executemany(
+        "INSERT INTO estatisticas_pix_silver_mes VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+            (202501, "P2P", "MANU", "SUL", "SUDESTE", 10.5, 2),
+            (202501, "P2P", "MANU", "SUL", "SUDESTE", 20.0, 3),
+            (202501, "P2P", "MANU", "SUL", "SUL", 5.0, 1),
+        ],
+    )
+
+    resultado = conexao.execute(_carregar_sql_gold()).fetchall()
+
+    assert sorted(resultado) == [
+        (202501, "P2P", "MANU", "SUL", "SUDESTE", 30.5, 5),
+        (202501, "P2P", "MANU", "SUL", "SUL", 5, 1),
+    ]
+
+
+def test_publica_gold_apenas_para_mes_escolhido(artefato):
+    spark = SparkFalso()
+
+    tabela = publicar_gold(
+        spark=spark,
+        artefato=artefato,
+        catalogo="workspace",
+        schema_gold="gold",
+    )
+
+    assert tabela == "workspace.gold.uso_pix_mensal"
+    assert "SUM(valor) AS valor_total" in spark.consulta
     assert spark.saida.write.formato == "delta"
     assert spark.saida.write.modo == "overwrite"
     assert spark.saida.write.opcoes == {"replaceWhere": "ano_mes = 202501"}
@@ -168,6 +226,6 @@ def test_preserva_resposta_antes_de_validar(monkeypatch):
     from pulso_pix.tarefa_estatisticas_pix import executar
 
     with pytest.raises(ContratoFonteInvalido):
-        executar(202501, "workspace", "bronze", "silver", "respostas_pix")
+        executar(202501, "workspace", "bronze", "silver", "gold", "respostas_pix")
 
     assert eventos == [(b"nao e json", "/Volumes/workspace/bronze/respostas_pix")]

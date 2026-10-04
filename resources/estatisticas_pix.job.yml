@@ -29,6 +29,8 @@ targets:
                   - ${resources.schemas.bronze.name}
                   - --schema-silver
                   - ${resources.schemas.silver.name}
+                  - --schema-gold
+                  - ${resources.schemas.gold.name}
                   - --volume
                   - ${resources.volumes.respostas_pix.name}
           environments:
