@@ -6,7 +6,7 @@ Entender comportamento e crescimento do Pix com dados públicos rastreáveis. In
 
 ## Funcionamento atual
 
-Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implantados em `dev`. As 12 competências de 2025 foram preservadas no Volume e publicadas na Silver, totalizando 163.161 linhas validadas no grão da fonte. A primeira Gold aprovada, `workspace.gold.uso_pix_mensal`, materializa 16.496 combinações mensais reconciliadas com a Silver.
+Vidal escolheu a V0 de uso do Pix por segmento, baseada em `EstatisticasTransacoesPix` e limitada ao ano civil de 2025, com uma unidade batch parametrizada por mês. O contrato, o adaptador e uma `python_wheel_task` ponta a ponta estão implantados em `dev`. As 12 competências de 2025 foram preservadas no Volume e publicadas na Silver, totalizando 163.161 linhas validadas no grão da fonte. A primeira Gold aprovada, `workspace.gold.uso_pix_mensal`, materializa 16.496 combinações mensais reconciliadas com a Silver e alimenta um dashboard AI/BI publicado em `dev`.
 
 A sequência abaixo registra o ciclo da V0; todas as etapas foram executadas para o recorte de 2025:
 
@@ -43,6 +43,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [008 — Isolamento no catálogo do workspace](decisoes/008-isolamento-no-workspace.md): somente `dev` no catálogo `workspace` aceito por Vidal em 2026-10-03.
 - [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): uma `python_wheel_task` ponta a ponta aceita por Vidal em 2026-10-03.
 - [010 — Primeiro consumo analítico da V0](decisoes/010-primeiro-consumo-gold.md): Gold combinada aceita por Vidal em 2026-10-04.
+- [011 — Consumo da Gold em dashboard AI/BI](decisoes/011-consumo-dashboard-aibi.md): dashboard gerenciado aceito por Vidal em 2026-10-05.
 
 ## Fontes investigadas
 
@@ -124,13 +125,15 @@ Vidal escolheu um **Lakeflow Job batch**, parametrizado por `ano_mes`, como úni
 
 A Gold `workspace.gold.uso_pix_mensal` responde à pergunta aprovada no grão mês × natureza × forma de iniciação × região pagadora × região recebedora, com `valor_total` e `quantidade_total`. A mesma tarefa publica primeiro a Silver e depois a Gold; ambas usam `replaceWhere` limitado à competência solicitada. Não há transação entre as duas tabelas: uma falha parcial deixa o Job com falha, e a reexecução mensal idempotente é o mecanismo de reparo.
 
-O bundle declara apenas no target `dev` os schemas `workspace.bronze`, `workspace.silver` e `workspace.gold`, o Volume gerenciado e o Job serverless. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nome `[dev]` do Job. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
+O bundle declara apenas no target `dev` os schemas `workspace.bronze`, `workspace.silver` e `workspace.gold`, o Volume gerenciado, o Job serverless e o dashboard AI/BI. O modo automático `development` não é usado porque a CLI atual prefixaria nomes e violaria os schemas exatos escolhidos; o isolamento continua explícito pelo target, caminho de estado e nomes `[dev]`. O target `prod` mantém `mode: production`, mas resolve zero recursos implantáveis.
 
-Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega. Dashboard também não foi aprovado. O próximo passo útil é escolher uma forma concreta de consumo da Gold — consulta versionada, notebook analítico ou dashboard — somente quando houver consumidor e pergunta definidos.
+Vidal escolheu um dashboard AI/BI como primeiro consumo da Gold. O recurso `[dev] Pulso Pix - uso em 2025` usa o warehouse serverless existente e uma única consulta portável, com catálogo e schema parametrizados pelo bundle. A página principal apresenta KPIs de valor, quantidade e cobertura, tendências mensais, segmentos e fluxo regional; uma página global oferece filtros por natureza, iniciação e regiões pagadora e recebedora. Os gráficos exibem as quatro categorias principais de natureza e iniciação e agrupam a cauda em `Outras`, sem alterar os valores originais disponíveis nos filtros.
+
+O dashboard está [publicado no workspace](https://dbc-6f6e2ab0-1349.cloud.databricks.com/dashboardsv3/01f1c0dca5481bbc9007062a6b7297b7/published?w=7474650652244145). Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega.
 
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, os SQLs e o overwrite seletivo passaram por 50 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e os SQLs de Silver e Gold; a CLI validou estritamente `dev` e `prod`.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, os SQLs, o overwrite seletivo e a estrutura do dashboard passaram por 53 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e os SQLs de Silver e Gold; a CLI validou estritamente `dev` e `prod`.
 
 Resultado estrutural da Silver atual:
 
@@ -160,6 +163,8 @@ Resultado estrutural da Gold validada em 2026-10-04:
 
 As 16.496 linhas correspondem a 16.496 grupos no grão escolhido, com zero duplicidades, maior multiplicidade igual a 1, zero medidas nulas ou negativas e mínimos observados de R$ 0,01 e uma transação. A reconciliação por mês encontrou 12 meses comparados, nenhum ausente e diferença máxima zero para valor e quantidade. O histórico Delta da Gold registra 12 `WRITE`, um por competência, todos com overwrite seletivo mensal. As 12 execuções da retrocarga terminaram com `SUCCESS` no Job `875157504022557`.
 
-A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod`, dashboard ou inferência sobre transações individuais.
+A consulta do dashboard foi executada no warehouse `845f16074a5f97c8` antes do deploy e retornou as 16.496 linhas, 12 meses e cinco grupos visuais por segmentação. O bundle criou e publicou o dashboard `01f1c0dca5481bbc9007062a6b7297b7`; a API confirmou estado ativo, revisão publicada, catálogo `workspace`, schema `gold`, warehouse correto e credenciais não incorporadas. A inspeção visual automatizada não foi executada porque nenhuma superfície de navegador estava disponível nesta sessão; isso permanece como limite de validação, não como evidência de falha do recurso.
+
+A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod` ou inferência sobre transações individuais.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
