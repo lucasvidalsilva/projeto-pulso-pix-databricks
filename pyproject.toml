@@ -13,7 +13,7 @@ dependencies = []
 processar_estatisticas_pix = "pulso_pix.tarefa_estatisticas_pix:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+dev = ["pytest>=8,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pulso_pix"]

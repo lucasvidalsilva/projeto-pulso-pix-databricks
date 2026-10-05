@@ -30,6 +30,9 @@ variables:
   volume_respostas_pix:
     description: Volume gerenciado para respostas brutas da API do Pix.
     default: respostas_pix
+  versao_implantacao:
+    description: Commit Git associado ao deploy do bundle.
+    default: local
 
 workspace:
   root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}

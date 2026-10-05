@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -160,30 +161,30 @@ def test_publica_apenas_mes_escolhido_com_sql_versionado(monkeypatch, registro_v
 
 
 def test_agrega_gold_no_grao_escolhido():
-    conexao = connect(":memory:")
-    conexao.execute(
-        """
-        CREATE TABLE estatisticas_pix_silver_mes (
-          ano_mes INTEGER,
-          natureza TEXT,
-          forma_iniciacao TEXT,
-          regiao_pagador TEXT,
-          regiao_recebedor TEXT,
-          valor NUMERIC,
-          quantidade INTEGER
+    with closing(connect(":memory:")) as conexao:
+        conexao.execute(
+            """
+            CREATE TABLE estatisticas_pix_silver_mes (
+              ano_mes INTEGER,
+              natureza TEXT,
+              forma_iniciacao TEXT,
+              regiao_pagador TEXT,
+              regiao_recebedor TEXT,
+              valor NUMERIC,
+              quantidade INTEGER
+            )
+            """
         )
-        """
-    )
-    conexao.executemany(
-        "INSERT INTO estatisticas_pix_silver_mes VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-            (202501, "P2P", "MANU", "SUL", "SUDESTE", 10.5, 2),
-            (202501, "P2P", "MANU", "SUL", "SUDESTE", 20.0, 3),
-            (202501, "P2P", "MANU", "SUL", "SUL", 5.0, 1),
-        ],
-    )
+        conexao.executemany(
+            "INSERT INTO estatisticas_pix_silver_mes VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (202501, "P2P", "MANU", "SUL", "SUDESTE", 10.5, 2),
+                (202501, "P2P", "MANU", "SUL", "SUDESTE", 20.0, 3),
+                (202501, "P2P", "MANU", "SUL", "SUL", 5.0, 1),
+            ],
+        )
 
-    resultado = conexao.execute(_carregar_sql_gold()).fetchall()
+        resultado = conexao.execute(_carregar_sql_gold()).fetchall()
 
     assert sorted(resultado) == [
         (202501, "P2P", "MANU", "SUL", "SUDESTE", 30.5, 5),

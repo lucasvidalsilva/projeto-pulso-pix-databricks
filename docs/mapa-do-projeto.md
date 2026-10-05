@@ -26,6 +26,7 @@ A sequência abaixo registra o ciclo da V0; todas as etapas foram executadas par
 | Dados | Medallion como referência; bruto em `bronze.respostas_pix`; qualidade por impacto |
 | Catálogo | `workspace`; dados reais apenas em `dev` |
 | Ambientes | `dev` implantável; `prod` apenas para validar configuração |
+| Entrega contínua | CI sem credenciais em PR; CD aprovado e restrito ao Environment `dev` |
 | Documentação | Este mapa + ADRs curtos + README de entrada |
 | Entrega | Branch + PR, commits automáticos; checks relevantes |
 
@@ -44,6 +45,7 @@ Detalhes operacionais estão no [AGENTS.md](../AGENTS.md). Método reutilizável
 - [009 — Execução das tarefas do Job](decisoes/009-execucao-tarefas-job.md): uma `python_wheel_task` ponta a ponta aceita por Vidal em 2026-10-03.
 - [010 — Primeiro consumo analítico da V0](decisoes/010-primeiro-consumo-gold.md): Gold combinada aceita por Vidal em 2026-10-04.
 - [011 — Consumo da Gold em dashboard AI/BI](decisoes/011-consumo-dashboard-aibi.md): dashboard gerenciado aceito por Vidal em 2026-10-05.
+- [012 — CD na Free Edition](decisoes/012-cd-na-free-edition.md): deploy em `dev` com PAT temporário e GitHub Environment aceito por Vidal em 2026-10-05.
 
 ## Fontes investigadas
 
@@ -131,9 +133,29 @@ Vidal escolheu um dashboard AI/BI como primeiro consumo da Gold. O recurso `[dev
 
 O dashboard está [publicado no workspace](https://dbc-6f6e2ab0-1349.cloud.databricks.com/dashboardsv3/01f1c0dca5481bbc9007062a6b7297b7/published?w=7474650652244145). Spark Declarative Pipeline, streaming, Auto Loader, CDC, simulador e ML não entram nesta entrega.
 
+## CI/CD seguro
+
+O CI de pull request não recebe credenciais e executa instalação bloqueada pelo `uv.lock`,
+Ruff, formatação, 53 testes, cobertura mínima de 85% e inspeção do wheel. As GitHub Actions de
+terceiros estão fixadas por commit completo. Concorrência e timeout impedem execuções locais
+obsoletas ou indefinidas.
+
+O workflow de CD só é elegível depois de um CI aprovado em `main` ou por disparo manual. O
+GitHub Environment `dev` deve exigir aprovação e conter `DATABRICKS_HOST` como variável e
+`DATABRICKS_TOKEN` como segredo temporário. O token é disponibilizado somente às etapas que
+chamam a CLI Databricks. O deploy recebe o SHA do commit como `versao_implantacao`, gravado nas
+tags do Job para relacionar código e recurso implantado.
+
+O caminho automático valida estritamente `dev` e `prod`, implanta apenas `dev` e registra o
+resumo do bundle. O smoke end-to-end de `202501` é manual: ele comprova ingestão e publicação
+reais quando necessário; por não rodar em cada merge, evita acumular uma nova extração bruta
+e consumir quota a cada mudança.
+O target `prod` continua sem recursos porque o workspace gratuito não oferece isolamento
+adequado para chamá-lo de produção.
+
 ## Evidências e limites
 
-Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, os SQLs, o overwrite seletivo e a estrutura do dashboard passaram por 53 testes unitários, lint e verificação de formatação. O wheel contém o entrypoint e os SQLs de Silver e Gold; a CLI validou estritamente `dev` e `prod`.
+Foram validados metadados oficiais, contrato de campos, primeiro mês da fonte escolhida, semântica do filtro mensal, uma chave de junção IBGE e pequenas respostas das APIs. O contrato, a persistência bruta, a preparação tipada, os SQLs, o overwrite seletivo e a estrutura do dashboard passaram por 53 testes unitários, lint e verificação de formatação. A cobertura local medida após a decisão 012 foi de 89,76%. O wheel contém o entrypoint e os SQLs de Silver e Gold; a CLI validou estritamente `dev` e `prod`.
 
 Resultado estrutural da Silver atual:
 
@@ -166,5 +188,9 @@ As 16.496 linhas correspondem a 16.496 grupos no grão escolhido, com zero dupli
 A consulta do dashboard foi executada no warehouse `845f16074a5f97c8` antes do deploy e retornou as 16.496 linhas, 12 meses e cinco grupos visuais por segmentação. O bundle criou e publicou o dashboard `01f1c0dca5481bbc9007062a6b7297b7`; a API confirmou estado ativo, revisão publicada, catálogo `workspace`, schema `gold`, warehouse correto e credenciais não incorporadas. A inspeção visual automatizada não foi executada porque nenhuma superfície de navegador estava disponível nesta sessão; isso permanece como limite de validação, não como evidência de falha do recurso.
 
 A fonte não declara paginação na especificação consultada; por segurança, o contrato rejeita qualquer resposta com `nextLink` em vez de publicar mês incompleto. As contagens mensais acima são evidências estruturais, não explicam causas para aumento ou queda do uso do Pix. Não há benchmark de custo ou desempenho, SLA, dados em `prod` ou inferência sobre transações individuais.
+
+O novo workflow de CD está implementado e validado localmente, mas ainda precisa da criação do
+GitHub Environment, do PAT temporário e de uma execução remota bem-sucedida antes de ser
+classificado como validado.
 
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.
