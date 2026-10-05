@@ -1,0 +1,803 @@
+{
+  "datasets": [
+    {
+      "name": "ds_uso_pix",
+      "displayName": "Uso mensal do Pix",
+      "queryLines": [
+        "SELECT TO_DATE(CONCAT(CAST(ano_mes AS STRING), '01'), 'yyyyMMdd') AS mes,\n",
+        "       ano_mes, natureza,\n",
+        "       CASE WHEN natureza IN ('P2P', 'P2B', 'B2P', 'B2B') THEN natureza ELSE 'Outras' END AS grupo_natureza,\n",
+        "       forma_iniciacao,\n",
+        "       CASE WHEN forma_iniciacao IN ('DICT', 'QRDN', 'MANU', 'QRES') THEN forma_iniciacao ELSE 'Outras' END AS grupo_iniciacao,\n",
+        "       regiao_pagador, regiao_recebedor, valor_total, quantidade_total\n",
+        "FROM uso_pix_mensal\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "visao-geral",
+      "displayName": "Visão geral",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "titulo",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Pulso Pix — uso em 2025"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "subtitulo",
+            "multilineTextboxSpec": {
+              "lines": [
+                "Valor e quantidade agregados pelo BCB. O recorte exclui liquidações internas dos participantes e não representa transações individuais."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-valor-total",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "sum(valor_total)",
+                      "expression": "SUM(`valor_total`)"
+                    },
+                    {
+                      "name": "monthly(mes)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `mes`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(valor_total)",
+                  "displayName": "Valor total",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "period": {
+                  "fieldName": "monthly(mes)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Valor movimentado"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-quantidade-total",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "sum(quantidade_total)",
+                      "expression": "SUM(`quantidade_total`)"
+                    },
+                    {
+                      "name": "monthly(mes)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `mes`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(quantidade_total)",
+                  "displayName": "Quantidade total",
+                  "format": {
+                    "type": "number",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "period": {
+                  "fieldName": "monthly(mes)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Transações"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-meses",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "countdistinct(mes)",
+                      "expression": "COUNT(DISTINCT `mes`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(mes)",
+                  "displayName": "Meses"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cobertura temporal"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 2,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "secao-evolucao",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Evolução mensal"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "tendencia-valor",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "monthly(mes)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `mes`)"
+                    },
+                    {
+                      "name": "sum(valor_total)",
+                      "expression": "SUM(`valor_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(mes)",
+                  "displayName": "Mês",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(valor_total)",
+                  "displayName": "Valor",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Valor por mês"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tendencia-quantidade",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "monthly(mes)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `mes`)"
+                    },
+                    {
+                      "name": "sum(quantidade_total)",
+                      "expression": "SUM(`quantidade_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(mes)",
+                  "displayName": "Mês",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(quantidade_total)",
+                  "displayName": "Transações",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quantidade por mês"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "secao-segmentos",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Segmentos"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "valor-por-natureza",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "grupo_natureza",
+                      "expression": "`grupo_natureza`"
+                    },
+                    {
+                      "name": "sum(valor_total)",
+                      "expression": "SUM(`valor_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(valor_total)",
+                  "displayName": "Valor",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "grupo_natureza",
+                  "displayName": "Natureza",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Valor por natureza",
+                "showDescription": true,
+                "description": "Outras reúne G2B, G2G, G2P, P2G, B2G e não disponível."
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "quantidade-por-iniciacao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "grupo_iniciacao",
+                      "expression": "`grupo_iniciacao`"
+                    },
+                    {
+                      "name": "sum(quantidade_total)",
+                      "expression": "SUM(`quantidade_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(quantidade_total)",
+                  "displayName": "Transações",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "grupo_iniciacao",
+                  "displayName": "Forma de iniciação",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quantidade por iniciação",
+                "showDescription": true,
+                "description": "Outras reúne INIC, APDN, AUTO, APES e não disponível."
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 12,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "secao-regioes",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Fluxos regionais"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fluxo-regional",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "regiao_pagador",
+                      "expression": "`regiao_pagador`"
+                    },
+                    {
+                      "name": "regiao_recebedor",
+                      "expression": "`regiao_recebedor`"
+                    },
+                    {
+                      "name": "sum(quantidade_total)",
+                      "expression": "SUM(`quantidade_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(quantidade_total)",
+                  "displayName": "Transações",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "regiao_pagador",
+                  "displayName": "Região pagadora",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "regiao_recebedor",
+                  "displayName": "Região recebedora",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quantidade por origem e destino",
+                "showDescription": true,
+                "description": "Barras empilhadas pela região recebedora."
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "filtros",
+      "displayName": "Filtros",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filtro-natureza",
+            "queries": [
+              {
+                "name": "f_natureza",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "natureza",
+                      "expression": "`natureza`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "natureza",
+                    "displayName": "Natureza",
+                    "queryName": "f_natureza"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Natureza"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filtro-iniciacao",
+            "queries": [
+              {
+                "name": "f_iniciacao",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "forma_iniciacao",
+                      "expression": "`forma_iniciacao`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "forma_iniciacao",
+                    "displayName": "Forma de iniciação",
+                    "queryName": "f_iniciacao"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Forma de iniciação"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filtro-regiao-pagador",
+            "queries": [
+              {
+                "name": "f_regiao_pagador",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "regiao_pagador",
+                      "expression": "`regiao_pagador`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "regiao_pagador",
+                    "displayName": "Região pagadora",
+                    "queryName": "f_regiao_pagador"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Região pagadora"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filtro-regiao-recebedor",
+            "queries": [
+              {
+                "name": "f_regiao_recebedor",
+                "query": {
+                  "datasetName": "ds_uso_pix",
+                  "fields": [
+                    {
+                      "name": "regiao_recebedor",
+                      "expression": "`regiao_recebedor`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "regiao_recebedor",
+                    "displayName": "Região recebedora",
+                    "queryName": "f_regiao_recebedor"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Região recebedora"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F4F8F8",
+        "dark": "#0B1517"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#111C1F"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#111C1F"
+      },
+      "fontColor": {
+        "light": "#102A2E",
+        "dark": "#E8F1F1"
+      },
+      "selectionColor": {
+        "light": "#00A88F",
+        "dark": "#58E3CC"
+      },
+      "visualizationColors": [
+        "#00A88F",
+        "#0072B2",
+        "#E69F00",
+        "#CC79A7",
+        "#D55E00",
+        "#5A6B7A",
+        "#56B4E9"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontFamily": "Inter",
+      "widgetCornerRadius": 10
+    }
+  }
+}

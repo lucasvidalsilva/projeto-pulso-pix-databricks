@@ -1,0 +1,10 @@
+targets:
+  dev:
+    resources:
+      dashboards:
+        uso_pix:
+          display_name: "[dev] Pulso Pix - uso em 2025"
+          file_path: ../src/dashboards/uso_pix.lvdash.json
+          warehouse_id: ${var.warehouse_id}
+          dataset_catalog: ${var.catalogo}
+          dataset_schema: ${var.schema_gold}
