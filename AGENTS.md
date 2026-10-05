@@ -23,7 +23,7 @@ Este scaffold define convenções, não uma arquitetura de dados concluída. Con
 - Preferir menos arquivos, com contexto próximo. Lógica reutilizável deve ser importável; notebooks podem ser produtivos, exploratórios ou analíticos se houver propósito claro. Não duplicar lógica entre notebook e módulo.
 - Manter comentários mínimos. Abstrair somente após surgir padrão real.
 - Priorizar legibilidade e capacidade de explicar; equilibrar performance, custo e escalabilidade conforme evidência. Correção dos dados é requisito.
-- Usar Medallion como referência. Convenção lógica: catálogo `pulso_pix`, schemas `bronze`, `silver`, `gold`, `sandbox`; criar apenas o necessário e verificar catálogo/permissões disponíveis. Schema indica camada; tabela indica entidade, sem repetir estágio no nome.
+- Usar Medallion como referência. Convenção lógica: catálogos `pulso_pix_dev` e `pulso_pix_prod`, schemas `bronze`, `silver`, `gold`, `sandbox`; criar apenas o necessário e verificar catálogo/permissões disponíveis. Schema indica camada; tabela indica entidade, sem repetir estágio no nome.
 - Usar grão e chaves explícitos. Definir reexecução e idempotência por ingestão. Preservar bruto, isolar dados inválidos e impedir saída sabidamente incorreta. Checks devem refletir impacto para o consumidor.
 - Toda Gold precisa de consumidor ou propósito claro. Exigir pergunta concreta para Analytics/ML e métricas; equilibrar análise e apresentação. ML só entra com necessidade real.
 - Começar pequeno e aumentar o volume progressivamente. Não inferir resultados nacionais ou individuais a partir de dados com outro grão. Não misturar MED agregado e eventos sintéticos como se fossem transações reais rotuladas.
@@ -50,8 +50,8 @@ Instalar ferramentas ausentes pela documentação oficial para o sistema operaci
 
 ```bash
 uv sync --group dev
-databricks aitools install --agents codex --scope project --skills-only
-databricks aitools list --scope project
+databricks aitools install --agents codex --scope global --skills-only
+databricks aitools list --scope global
 databricks auth login --host https://SEU-WORKSPACE --profile PULSO_PIX
 databricks current-user me --profile PULSO_PIX
 ```
@@ -73,8 +73,8 @@ Referências oficiais de configuração:
 
 ## Free Edition, bundle e credenciais
 
-- Usar targets `dev` (development) e `portfolio` (production), no mesmo workspace. `production` é modo do bundle, não prova de infraestrutura produtiva ou SLA. Isolamento é lógico e precisa ser implementado, não presumido.
-- O bundle inicial separa caminhos de recursos por target; os schemas de dados ainda dependem da escolha e implementação. Ao criar dados, parametrizar isolamento: propor catálogo por target, se permitido, ou schemas separados, e pedir a escolha de Vidal antes de persistir dados. Não permitir que `dev` sobrescreva `portfolio` por padrão.
+- Usar targets `dev` (development) e `prod` (production), no mesmo workspace. `production` é modo do bundle, não prova de infraestrutura produtiva ou SLA. Isolar dados pelos catálogos `pulso_pix_dev` e `pulso_pix_prod`, condicionados ao suporte e às permissões reais do workspace.
+- O bundle separa caminhos de recursos e parametriza o catálogo por target. Não permitir que `dev` sobrescreva `prod` por padrão. Se a Free Edition não permitir os dois catálogos, perguntar a Vidal antes de escolher alternativa.
 - Verificar permissões, serverless, saída de rede, quotas e disponibilidade no workspace real. Se um recurso não existir na Free Edition, perguntar a Vidal antes de escolher alternativa. Não implementar arquitetura paga ou enterprise como substituição automática.
 - Nenhuma credencial no código, bundle, notebook, log ou commit. Usar OAuth U2M local; `.env` só local para valores que precisem dele, sem presumir carregamento automático. Config sensível no CI usa GitHub Secrets; Databricks secrets apenas quando disponível.
 - CI local pode existir sem credenciais Databricks. Validar autenticação não interativa antes de escolher CD; não levar cache OAuth pessoal ao GitHub Actions. OIDC/service principal ou PAT são alternativas a verificar, não capacidades garantidas da Free Edition.
@@ -82,7 +82,7 @@ Referências oficiais de configuração:
 
 ```bash
 databricks bundle validate -t dev --profile PULSO_PIX
-databricks bundle validate -t portfolio --profile PULSO_PIX
+databricks bundle validate -t prod --profile PULSO_PIX
 ```
 
 Validar o target pertinente a cada mudança. Deploy futuro, após decisão e autorização de execução:

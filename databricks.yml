@@ -1,13 +1,35 @@
 bundle:
   name: pulso-pix
 
+include:
+  - resources/*.yml
+
+artifacts:
+  pacote:
+    type: whl
+    build: uv build --wheel
+    path: .
+
 variables:
   catalogo:
-    description: Catalogo logico; verificar disponibilidade antes de criar dados.
-    default: pulso_pix
-  sufixo_ambiente:
-    description: Sufixo a aplicar aos objetos de dados quando houver implementacao.
-    default: dev
+    description: Catalogo gerenciado disponivel na Free Edition.
+    default: workspace
+  schema_bronze:
+    description: Schema da camada bruta implantavel somente em dev.
+    default: bronze
+  schema_silver:
+    description: Schema da camada tratada implantavel somente em dev.
+    default: silver
+  schema_gold:
+    description: Schema analitico da entrega Gold aprovada.
+    default: gold
+  warehouse_id:
+    description: SQL warehouse usado pelo dashboard AI/BI em dev.
+    lookup:
+      warehouse: Serverless Starter Warehouse
+  volume_respostas_pix:
+    description: Volume gerenciado para respostas brutas da API do Pix.
+    default: respostas_pix
 
 workspace:
   root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
@@ -17,7 +39,6 @@ sync:
     - .venv/**
     - .agents/**
     - .github/**
-    - dados/**
     - docs/**
     - tests/**
     - __pycache__/**
@@ -25,10 +46,7 @@ sync:
 targets:
   dev:
     default: true
-    mode: development
-    variables:
-      sufixo_ambiente: dev
-  portfolio:
+  prod:
     mode: production
-    variables:
-      sufixo_ambiente: portfolio
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}

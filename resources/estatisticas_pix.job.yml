@@ -1,0 +1,41 @@
+targets:
+  dev:
+    resources:
+      jobs:
+        estatisticas_pix:
+          name: "[${bundle.target}] Pulso Pix - estatísticas mensais"
+          max_concurrent_runs: 1
+          queue:
+            enabled: true
+          parameters:
+            - name: ano_mes
+              default: "202501"
+          tasks:
+            - task_key: processar_estatisticas_pix
+              environment_key: padrao
+              max_retries: 2
+              min_retry_interval_millis: 30000
+              retry_on_timeout: false
+              timeout_seconds: 3600
+              python_wheel_task:
+                package_name: pulso_pix
+                entry_point: processar_estatisticas_pix
+                parameters:
+                  - --ano-mes
+                  - "{{job.parameters.ano_mes}}"
+                  - --catalogo
+                  - ${var.catalogo}
+                  - --schema-bronze
+                  - ${resources.schemas.bronze.name}
+                  - --schema-silver
+                  - ${resources.schemas.silver.name}
+                  - --schema-gold
+                  - ${resources.schemas.gold.name}
+                  - --volume
+                  - ${resources.volumes.respostas_pix.name}
+          environments:
+            - environment_key: padrao
+              spec:
+                client: "4"
+                dependencies:
+                  - ../dist/*.whl
