@@ -193,4 +193,9 @@ O novo workflow de CD está implementado e validado localmente, mas ainda precis
 GitHub Environment, do PAT temporário e de uma execução remota bem-sucedida antes de ser
 classificado como validado.
 
+O material de divulgação está implementado como uma capa vetorial própria e um texto para o
+LinkedIn. A peça usa os nomes OpenAI Codex e Databricks apenas para identificar as tecnologias,
+sem reproduzir ou fundir seus logos e sem sugerir parceria. O texto permanece marcado como
+rascunho até a primeira validação remota do CD em `dev`.
+
 Depois de uma entrega, registrar aqui: pergunta → decisão → implementação → evidência → limite, com links para código e ADR quando necessários.

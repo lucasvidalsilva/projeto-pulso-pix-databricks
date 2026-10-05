@@ -1,3 +1,5 @@
+![Pulso Pix — dados reais, práticas de prod](docs/imagens/capa-linkedin.svg)
+
 # Pulso Pix
 
 [![CI](https://github.com/lucasvidalsilva/projeto-pulso-pix-databricks/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasvidalsilva/projeto-pulso-pix-databricks/actions/workflows/ci.yml)
@@ -13,6 +15,7 @@ O projeto prioriza dados úteis, escolhas explicáveis e evidência. Streaming, 
 - [Instruções de desenvolvimento](AGENTS.md): método, ambiente, Git e Databricks.
 - [Decisões arquiteturais](docs/decisoes): fontes, batch, armazenamento, orquestração, Gold e dashboard.
 - [Política de segurança](SECURITY.md): credenciais, vulnerabilidades e desenvolvimento assistido.
+- [Texto para o LinkedIn](docs/divulgacao/post-linkedin.md): narrativa, evidências e limites da publicação.
 
 ## Arquitetura da entrega
 
