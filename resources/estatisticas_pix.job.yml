@@ -4,6 +4,10 @@ targets:
       jobs:
         estatisticas_pix:
           name: "[${bundle.target}] Pulso Pix - estatísticas mensais"
+          tags:
+            ambiente: ${bundle.target}
+            projeto: pulso_pix
+            versao_git: ${var.versao_implantacao}
           max_concurrent_runs: 1
           queue:
             enabled: true

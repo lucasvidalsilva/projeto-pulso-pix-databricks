@@ -1,0 +1,88 @@
+name: CD Databricks dev
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      executar_smoke:
+        description: Reprocessar 202501 e aguardar o Job concluir
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-databricks-dev
+  cancel-in-progress: false
+
+jobs:
+  implantar:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment:
+      name: dev
+      url: https://dbc-6f6e2ab0-1349.cloud.databricks.com/dashboardsv3/01f1c0dca5481bbc9007062a6b7297b7/published?w=7474650652244145
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      VERSAO_IMPLANTACAO: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Obter versao aprovada
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.VERSAO_IMPLANTACAO }}
+          persist-credentials: false
+
+      - name: Preparar uv e Python
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias bloqueadas
+        run: uv sync --locked --group dev
+
+      - name: Instalar Databricks CLI
+        uses: databricks/setup-cli@9230f12203ef173d0b901846f62a55ce997efef7
+        with:
+          version: 1.19.0
+
+      - name: Validar targets
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle validate --strict -t dev \
+            --var "versao_implantacao=${VERSAO_IMPLANTACAO}"
+          databricks bundle validate --strict -t prod \
+            --var "versao_implantacao=${VERSAO_IMPLANTACAO}"
+
+      - name: Implantar bundle em dev
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle deploy --auto-approve -t dev \
+            --var "versao_implantacao=${VERSAO_IMPLANTACAO}"
+
+      - name: Registrar resumo da implantacao
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle summary -t dev \
+            --var "versao_implantacao=${VERSAO_IMPLANTACAO}"
+
+      - name: Executar smoke end-to-end
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.executar_smoke }}
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle run estatisticas_pix -t dev \
+            --var "versao_implantacao=${VERSAO_IMPLANTACAO}" \
+            --params ano_mes=202501
