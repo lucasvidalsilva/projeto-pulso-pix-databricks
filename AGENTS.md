@@ -50,8 +50,8 @@ Instalar ferramentas ausentes pela documentação oficial para o sistema operaci
 
 ```bash
 uv sync --group dev
-databricks aitools install --agents codex --scope project --skills-only
-databricks aitools list --scope project
+databricks aitools install --agents codex --scope global --skills-only
+databricks aitools list --scope global
 databricks auth login --host https://SEU-WORKSPACE --profile PULSO_PIX
 databricks current-user me --profile PULSO_PIX
 ```
