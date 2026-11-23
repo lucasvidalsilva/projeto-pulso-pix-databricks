@@ -51,7 +51,7 @@ jobs:
         run: uv sync --locked --group dev
 
       - name: Instalar Databricks CLI
-        uses: databricks/setup-cli@9230f12203ef173d0b901846f62a55ce997efef7
+        uses: databricks/setup-cli@12452ad4003a2dd61d5a7cee30bc068f750a2e00
         with:
           version: 1.19.0
 
